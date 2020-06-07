@@ -35,7 +35,7 @@
 // ****************************************************************************
 
 #include <ctype.h>
-#include <Windows.h>
+#include <thread>
 #include <cmath>
 
 #include "PxPhysicsAPI.h"
@@ -81,52 +81,80 @@ PxRigidDynamic* createDynamic(const PxTransform& t, const PxGeometry& geometry, 
 PxRigidDynamic* Golf = nullptr;//°ÑgolfÉèÖÃÎªÈ«¾Ö·ÃÎÊ
 PxRigidStatic* Arrow = nullptr;//·½ÏòÖ¸Ê¾¼ıÍ·
 float arrowR = 5.0f;//¼ıÍ·ÓëÇòÖ®¼äµÄ¾àÀë
-int rotateDegree = 60;//Ğı×ª½Ç¶È
+int rotateDegree = 90;//Ã¿´ÎĞı×ª90¶È
+
 float toRad(int degree)//½Ç¶È×ª»¡¶È
 {
 	return degree * (PxPi / 180.0f);
 }
 
 							   //¸üĞÂ¼ıÍ·µÄÏß³Ìµ÷ÓÃµÄº¯Êı
-DWORD WINAPI changeArrow(LPVOID lpParamter)
+void changeArrow()
 {
-	
 	while (!Golf->isSleeping());//µ±Çò»¹Ã»Í£ÏÂÊ±£¬loop
 								//ÇòÍ£ÏÂÖ®ºó£¬°ÚÒ»¸öĞÂµÄ¼ıÍ·
 	printf("createArrow\n");
 	PxVec3 posv = Golf->getGlobalPose().p;//»ñÈ¡ÇòµÄÊÀ½ç×ø±ê  
-	PxVec3 posv1 = PxVec3(posv.x + arrowR * cos(toRad(rotateDegree)), posv.y, posv.z - arrowR * sin(toRad(rotateDegree)));//¼ıÍ·µÄÎ»ÖÃ ÊÀ½ç×ø±ê
-	PxQuat rotate = PxQuat(toRad(rotateDegree), PxVec3(0, 1, 0));//¼ıÍ·µÄĞı×ª½Ç¶È ºóÃæÄÇ¸övec3×ø±êÊÇÎïÌå×ø±êÏµ ²»ÊÇÊÀ½ç×ø±êÏµ
-	PxTransform position = PxTransform(posv1, rotate);//×éºÏ³Étransform±ä»»¾ØÕó
+	//PxVec3 posv1 = PxVec3(posv.x + arrowR * cos(toRad(rotateDegree)), posv.y, posv.z - arrowR * sin(toRad(rotateDegree)));//¼ıÍ·µÄÎ»ÖÃ ÊÀ½ç×ø±ê
+	//PxQuat rotate = PxQuat(toRad(rotateDegree), PxVec3(0, 1, 0));//¼ıÍ·µÄĞı×ª½Ç¶È ºóÃæÄÇ¸övec3×ø±êÊÇÎïÌå×ø±êÏµ ²»ÊÇÊÀ½ç×ø±êÏµ
+	//PxTransform position = PxTransform(posv1, rotate);//×éºÏ³Étransform±ä»»¾ØÕó
 
-	Arrow = gPhysics->createRigidStatic(position);//ÉèÖÃ¼ıÍ·Î»ÖÃÀ´´´½¨¼ıÍ·
-	//PxTransform arrowPose(PxQuat(PxHalfPi, PxVec3(0, 1, 0)));
+	Arrow = gPhysics->createRigidStatic(PxTransform(posv-=PxVec3(0.0f,0.0f,5.0f)));//¸ù¾İÇòµÄÊÀ½ç×ø±êÉèÖÃ¼ıÍ·Î»ÖÃÀ´´´½¨¼ıÍ·
+	PxTransform arrowPose(PxQuat(PxHalfPi, PxVec3(0, 1, 0)));
 	PxShape* arrowShape = PxRigidActorExt::createExclusiveShape(*Arrow, PxCapsuleGeometry(0.5f, 1.5f), *gMaterial);//¼ıÍ·ĞÎ×´
 	arrowShape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, false);//¹Ø±ÕÅö×²
-	//arrowShape->setLocalPose(arrowPose);
+	arrowShape->setLocalPose(arrowPose);//ÉèÖÃ¼ıÍ··½ÏòÎªË®Æ½ÏòÇ°
 	//Arrow->setGlobalPose(position);
 	gScene->addActor(*Arrow);
-	
-	return 0;
 }
 
 void hit()
 {
+	if (!Golf->isSleeping()) return;//µ±ÇòÃ»ÓĞÍ£ÏÂÊ±£¬²»ÔÊĞí´ò»÷
+
 	printf("hit\n");
-	Arrow->getGlobalPose();
+	PxVec3 arrPos = Arrow->getGlobalPose().p;
+	PxVec3 golfPos = Golf->getGlobalPose().p;
+	PxVec3 force = (arrPos - golfPos).getNormalized() * 20;//ÊµÏÖÁËLYµÄË¼Â·
+	//Ê©¼ÓÁ¦µÄ·½ÏòÓë´óĞ¡ Ìá¹©Ë¼Â·£º·½Ïò = ¼ıÍ·µÄÊÀ½ç×ø±ê - ÇòµÄÊÀ½ç×ø±ê £¬getGlobalPose·µ»ØµÄÊÇÎ»ÖÃ+Ğı×ªĞÅÏ¢£¬getGlobalPose().pÕâÑùµÃµ½µÄÊÇÎ»ÖÃµÄVec3
 	
-	//gScene->removeActor(*Golf);//É¾³ıÀÏµÄGolf
-	PxVec3 lacc = PxVec3(10.0f, 0, 0.0f);//Ê©¼ÓÁ¦µÄ·½ÏòÓë´óĞ¡ Ìá¹©Ë¼Â·£º·½Ïò = ¼ıÍ·µÄÊÀ½ç×ø±ê - ÇòµÄÊÀ½ç×ø±ê £¬getGlobalPose·µ»ØµÄÊÇÎ»ÖÃ+Ğı×ªĞÅÏ¢£¬getGlobalPose().pÕâÑùµÃµ½µÄÊÇÎ»ÖÃµÄVec3
 	gScene->removeActor(*Arrow);//É¾³ı¼ıÍ·
-	Golf->addForce(lacc, PxForceMode::eVELOCITY_CHANGE);//Ê©¼ÓÁ¦
+	Golf->addForce(force, PxForceMode::eVELOCITY_CHANGE);//Ê©¼ÓÁ¦
 	Golf->setSleepThreshold(40.0f);//ĞİÃß×´Ì¬ãĞÖµ
-	//Golf = createDynamic(Golf->getGlobalPose(), PxSphereGeometry(1.0f), PxVec3(0, 0, -1.0f) * 10);//³¯Ä³¸ö·½Ïò·¢ÉäGolf
-	HANDLE tem=CreateThread(NULL, 0, changeArrow, NULL, 0, NULL);//ĞÂ½¨Ïß³Ì¼àÌıÇòµÄÔË¶¯£¬Í£Ö¹Ê±¸üĞÂ¼ıÍ·
+	std::thread renewArrow(changeArrow);//´´½¨¼àÌıÏß³Ì¸üĞÂ¼ıÍ·
+	renewArrow.detach();//Ê¹µÃÏß³ÌÍÑÀëÖ÷Ïß³ÌµÄ¿ØÖÆ£¬Ö´ĞĞÍê×Ô¶¯ÍË³ö²¢ÇÒÊÍ·Å×ÊÔ´
+	//HANDLE tem=CreateThread(NULL, 0, changeArrow, NULL, 0, NULL);//ĞÂ½¨Ïß³Ì¼àÌıÇòµÄÔË¶¯£¬Í£Ö¹Ê±¸üĞÂ¼ıÍ·
 	//TerminateThread(tem, 0);
+}
+
+
+//¶Ô¼ıÍ·½øĞĞĞı×ª
+void rotateArrow()
+{
+	gScene->removeActor(*Arrow);
+	PxVec3 posv = Golf->getGlobalPose().p - Arrow->getGlobalPose().p;//»ñÈ¡Ïà¶ÔÏòÁ¿
+
+	//±ä»»µÄÆ½Ãæ×ø±êÏµ¼ÆËãbug£¡£¡£¡£¡
+	posv.x = posv.x - 5 * sin(toRad(rotateDegree));
+	posv.z = posv.z - 5 * cos(toRad(abs(rotateDegree - 90)));
+
+	posv = posv + Golf->getGlobalPose().p;
+	Arrow = gPhysics->createRigidStatic(PxTransform(posv));//¸ù¾İÇòµÄÊÀ½ç×ø±êÉèÖÃ¼ıÍ·Î»ÖÃÀ´´´½¨¼ıÍ·
+	rotateDegree = (rotateDegree + 90) % 360;//¸Ä±ä½Ç¶È£¬·ñÔòÃ¿´Î¶¼Ö»±ä60¶ÈÁË
+	//posv = posv.getNormalized();
+
+	PxTransform arrowPose(PxQuat(PxHalfPi,PxVec3(1,0,0)));//ÉèÖÃ¼ıÍ··½Ïò£¡£¡£¡£¡£¡£¡bug
+	
+	PxShape* arrowShape = PxRigidActorExt::createExclusiveShape(*Arrow, PxCapsuleGeometry(0.5f, 1.5f), *gMaterial);//¼ıÍ·ĞÎ×´
+	arrowShape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, false);//¹Ø±ÕÅö×²
+	arrowShape->setLocalPose(arrowPose);//ÉèÖÃ¼ıÍ··½ÏòÎªË®Æ½ÏòÇ°
+	gScene->addActor(*Arrow);
 }
 
 void reset()
 {
+	if (!Golf->isSleeping()) return;//µ±ÇòÃ»ÓĞÍ£ÏÂÊ±£¬½ûÖ¹ÖØÖÃ£¬·ÀÖ¹·¢Éúbug
+
 	gScene->removeActor(*Arrow);
 	Golf->setGlobalPose(PxTransform(PxVec3(30.0f, 0.0f, 30.0f)));
 	Golf->setLinearVelocity(PxVec3(0, 0, 0),1);/*ÏßĞÔËÙ¶È*/
@@ -271,6 +299,7 @@ void keyPress(unsigned char key, const PxTransform& camera)/*°´¼üÊäÈë´¦Àí£¬Õâ²¿·
 	{
 		//case 'H':	createStack(PxTransform(PxVec3(10,0,stackZ-=16.0f)), 10, 2.0f);						break;
 		//case ' ':	createDynamic(camera, PxSphereGeometry(1.0f), camera.rotate(PxVec3(0,0,-1))*100);	break;/*Ä¿Ç°ÈÔÈ»±£ÁôÁË¿Õ¸ñ¼ü·¢ÉäÇò ËÙ¶ÈÎª*100*/
+	case 'L':	rotateArrow(); break;
 	case 'K':	hit();	break;
 	case 'R':   reset(); break;
 	}
