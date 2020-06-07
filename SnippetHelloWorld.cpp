@@ -36,6 +36,7 @@
 
 #include <ctype.h>
 #include <Windows.h>
+#include <cmath>
 
 #include "PxPhysicsAPI.h"
 
@@ -79,7 +80,12 @@ PxRigidDynamic* createDynamic(const PxTransform& t, const PxGeometry& geometry, 
 
 PxRigidDynamic* Golf = nullptr;//把golf设置为全局访问
 PxRigidStatic* Arrow = nullptr;//方向指示箭头
-
+float arrowR = 5.0f;//箭头与球之间的距离
+int rotateDegree = 60;//旋转角度
+float toRad(int degree)//角度转弧度
+{
+	return degree * (PxPi / 180.0f);
+}
 
 							   //更新箭头的线程调用的函数
 DWORD WINAPI changeArrow(LPVOID lpParamter)
@@ -87,22 +93,18 @@ DWORD WINAPI changeArrow(LPVOID lpParamter)
 	
 	while (!Golf->isSleeping());//当球还没停下时，loop
 								//球停下之后，摆一个新的箭头
-	printf("createArrow");
-	PxVec3 posv = Golf->getGlobalPose().p;
-	PxTransform position = PxTransform(posv.x, posv.y, posv.z - 5.0f);
-	position.rotate(PxVec3(0,1,0));
-	//PxTransform newPos = Golf->getGlobalPose().transform(PxTransform(0, 0, -5.0f));
-	//PxTransform newPos = Golf->getGlobalPose().transform(PxTransform(posv));
-	//Arrow = gPhysics->createRigidStatic(newPos);//方向指示器
+	printf("createArrow\n");
+	PxVec3 posv = Golf->getGlobalPose().p;//获取球的世界坐标  
+	PxVec3 posv1 = PxVec3(posv.x + arrowR * cos(toRad(rotateDegree)), posv.y, posv.z - arrowR * sin(toRad(rotateDegree)));//箭头的位置 世界坐标
+	PxQuat rotate = PxQuat(toRad(rotateDegree), PxVec3(0, 1, 0));//箭头的旋转角度 后面那个vec3坐标是物体坐标系 不是世界坐标系
+	PxTransform position = PxTransform(posv1, rotate);//组合成transform变换矩阵
 
-	Arrow = gPhysics->createRigidStatic(PxTransform(posv.x,posv.y,posv.z-5.0f));//方向指示器
-
-	PxTransform arrowPose(PxQuat(PxHalfPi, PxVec3(0, 1, 0))); //旋转PxQuat(旋转角度弧度, 旋转绕轴)，默认以原点旋转
-
-	PxShape* arrowShape = PxRigidActorExt::createExclusiveShape(*Arrow, PxCapsuleGeometry(0.5f, 1.5f), *gMaterial);
-
+	Arrow = gPhysics->createRigidStatic(position);//设置箭头位置来创建箭头
+	//PxTransform arrowPose(PxQuat(PxHalfPi, PxVec3(0, 1, 0)));
+	PxShape* arrowShape = PxRigidActorExt::createExclusiveShape(*Arrow, PxCapsuleGeometry(0.5f, 1.5f), *gMaterial);//箭头形状
 	arrowShape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, false);//关闭碰撞
-	arrowShape->setLocalPose(arrowPose);
+	//arrowShape->setLocalPose(arrowPose);
+	//Arrow->setGlobalPose(position);
 	gScene->addActor(*Arrow);
 	
 	return 0;
@@ -110,14 +112,14 @@ DWORD WINAPI changeArrow(LPVOID lpParamter)
 
 void hit()
 {
-	printf("hit");
+	printf("hit\n");
 	Arrow->getGlobalPose();
 	
 	//gScene->removeActor(*Golf);//删除老的Golf
-	PxVec3 lacc = PxVec3(0, 0, -5.0f);//施加力的方向与大小
+	PxVec3 lacc = PxVec3(10.0f, 0, 0.0f);//施加力的方向与大小 提供思路：方向 = 箭头的世界坐标 - 球的世界坐标 ，getGlobalPose返回的是位置+旋转信息，getGlobalPose().p这样得到的是位置的Vec3
 	gScene->removeActor(*Arrow);//删除箭头
-	Golf->addForce(lacc, PxForceMode::eVELOCITY_CHANGE);
-	Golf->setSleepThreshold(20.0f);//休眠状态阈值
+	Golf->addForce(lacc, PxForceMode::eVELOCITY_CHANGE);//施加力
+	Golf->setSleepThreshold(40.0f);//休眠状态阈值
 	//Golf = createDynamic(Golf->getGlobalPose(), PxSphereGeometry(1.0f), PxVec3(0, 0, -1.0f) * 10);//朝某个方向发射Golf
 	HANDLE tem=CreateThread(NULL, 0, changeArrow, NULL, 0, NULL);//新建线程监听球的运动，停止时更新箭头
 	//TerminateThread(tem, 0);
@@ -157,6 +159,54 @@ void createStack(const PxTransform& t, PxU32 size, PxReal halfExtent)
 	shape->release();
 }
 
+void createScene()
+{
+	/*材质*/
+	gMaterial = gPhysics->createMaterial(0.5f, 0.5f, 0.8f);/*静摩擦力 动摩擦力 弹性恢复系数：距离地面1m的球弹起来0.6m的高度*/
+
+														   /*场景平面actor[0]*/
+	PxRigidStatic* groundPlane = PxCreatePlane(*gPhysics, PxPlane(0, 1, 0, 0), *gMaterial);
+	gScene->addActor(*groundPlane);
+
+	/*旗杆actor[1]*/
+	PxRigidStatic* aFlagActor = gPhysics->createRigidStatic(PxTransform(PxVec3(20.0f, 45.0f, -65.0f)));/*旗杆位置*/
+	PxTransform relativePose(PxQuat(PxHalfPi, PxVec3(0, 0, 1)));
+	PxShape* aFlagShape = PxRigidActorExt::createExclusiveShape(*aFlagActor,
+		PxCapsuleGeometry(1.0f, 45.0f), *gMaterial);/*创建shape形状*/
+	aFlagShape->setLocalPose(relativePose);/*旋转至y中轴线*/
+	gScene->addActor(*aFlagActor);
+
+
+	/*球actor[2]*/
+	Golf = gPhysics->createRigidDynamic(PxTransform(PxVec3(30.0f, 0.0f, 30.0f)));/*球起始位置*/
+	PxShape* aGolfShape = PxRigidActorExt::createExclusiveShape(*Golf,
+		PxSphereGeometry(1.0f), *gMaterial);/*形状、材质*/
+	PxRigidBodyExt::updateMassAndInertia(*Golf, 40.0f);/*设置密度（质量）*/
+
+	Golf->setAngularDamping(0.5f);/*设置角度阻尼*/
+	Golf->setLinearDamping(0.4f);/*设置线性阻尼*/
+	gScene->addActor(*Golf);
+	/*应该还需要设置几个参数来控制 比如isSleeping()这种东西 比如配合按键操作来控制球的位置 或者击球的力的方向 大小*/
+
+	//方向指示箭头actor[3]
+	//Arrow = gPhysics->createRigidStatic(PxTransform(PxVec3(30.0f, 0.0f, 27.0f)));//方向指示器
+	PxTransform newPos = Golf->getGlobalPose().transform(PxTransform(0, 0, -5.0f));
+
+	Arrow = gPhysics->createRigidStatic(newPos);//方向指示器
+	PxTransform arrowPose(PxQuat(PxHalfPi, PxVec3(0, 1.0f, 0)));
+	PxShape* arrowShape = PxRigidActorExt::createExclusiveShape(*Arrow, PxCapsuleGeometry(0.5f, 1.5f), *gMaterial);
+	arrowShape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, false);//关闭碰撞
+	arrowShape->setLocalPose(arrowPose);
+	gScene->addActor(*Arrow);
+
+	/*画的立方体堆*/
+	for (PxU32 i = 0; i < 4; i++)
+		createStack(PxTransform(PxVec3(30, 0, stackZ -= 16.0f)), 10, 2.0f);
+
+	
+
+}
+
 void initPhysics(bool interactive)
 {
 	//第一步 foundation（physx版本，内存分配器16字节对齐，错误回调函数）
@@ -183,47 +233,9 @@ void initPhysics(bool interactive)
 		pvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_CONTACTS, true);
 		pvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_SCENEQUERIES, true);
 	}
-	/*材质*/
-	gMaterial = gPhysics->createMaterial(0.5f, 0.5f, 0.8f);/*静摩擦力 动摩擦力 弹性恢复系数：距离地面1m的球弹起来0.6m的高度*/
 
-														   /*场景平面actor[0]*/
-	PxRigidStatic* groundPlane = PxCreatePlane(*gPhysics, PxPlane(0, 1, 0, 0), *gMaterial);
-	gScene->addActor(*groundPlane);
-
-	/*旗杆actor[1]*/
-	PxRigidStatic* aFlagActor = gPhysics->createRigidStatic(PxTransform(PxVec3(20.0f, 45.0f, -65.0f)));/*旗杆位置*/
-	PxTransform relativePose(PxQuat(PxHalfPi, PxVec3(0, 0, 1)));
-	PxShape* aFlagShape = PxRigidActorExt::createExclusiveShape(*aFlagActor,
-		PxCapsuleGeometry(1.0f, 45.0f), *gMaterial);/*创建shape形状*/
-	aFlagShape->setLocalPose(relativePose);/*旋转至y中轴线*/
-	gScene->addActor(*aFlagActor);
-
-
-	/*球actor[2]*/
-	Golf = gPhysics->createRigidDynamic(PxTransform(PxVec3(30.0f, 0.0f, 30.0f)));/*球起始位置*/
-	PxShape* aGolfShape = PxRigidActorExt::createExclusiveShape(*Golf,
-		PxSphereGeometry(1.0f), *gMaterial);/*形状、材质*/
-	PxRigidBodyExt::updateMassAndInertia(*Golf, 40.0f);/*设置密度（质量）*/
-	
-	Golf->setAngularDamping(0.5f);/*设置角度阻尼*/
-	Golf->setLinearDamping(0.4f);/*设置线性阻尼*/
-	gScene->addActor(*Golf);
-	/*应该还需要设置几个参数来控制 比如isSleeping()这种东西 比如配合按键操作来控制球的位置 或者击球的力的方向 大小*/
-
-	//方向指示箭头actor[3]
-	//Arrow = gPhysics->createRigidStatic(PxTransform(PxVec3(30.0f, 0.0f, 27.0f)));//方向指示器
-	PxTransform newPos = Golf->getGlobalPose().transform(PxTransform(0, 0, -5.0f));
-
-	Arrow = gPhysics->createRigidStatic(newPos);//方向指示器
-	PxTransform arrowPose(PxQuat(PxHalfPi, PxVec3(0, 1.0f, 0)));
-	PxShape* arrowShape = PxRigidActorExt::createExclusiveShape(*Arrow, PxCapsuleGeometry(0.5f, 1.5f), *gMaterial);
-	arrowShape->setFlag(PxShapeFlag:: eSIMULATION_SHAPE, false);//关闭碰撞
-	arrowShape->setLocalPose(arrowPose);
-	gScene->addActor(*Arrow);
-
-	/*画的立方体堆*/
-	for (PxU32 i = 0; i<4; i++)
-		createStack(PxTransform(PxVec3(10, 0, stackZ -= 16.0f)), 10, 2.0f);
+	//填充场景
+	createScene();
 
 	if (!interactive)
 		createDynamic(PxTransform(PxVec3(0, 40, 100)), PxSphereGeometry(4), PxVec3(0, -50, -100));
