@@ -84,26 +84,43 @@ PxRigidStatic* Arrow = nullptr;//方向指示箭头
 							   //更新箭头的线程调用的函数
 DWORD WINAPI changeArrow(LPVOID lpParamter)
 {
+	
 	while (!Golf->isSleeping());//当球还没停下时，loop
 								//球停下之后，摆一个新的箭头
-	PxTransform newPos = Golf->getGlobalPose().transform(PxTransform(0, 0, 5.0f));
-	Arrow = gPhysics->createRigidStatic(newPos);//方向指示器
-	PxTransform arrowPose(PxQuat(PxHalfPi, PxVec3(0, 1.0f, 0)));
+	printf("createArrow");
+	PxVec3 posv = Golf->getGlobalPose().p;
+	PxTransform position = PxTransform(posv.x, posv.y, posv.z - 5.0f);
+	position.rotate(PxVec3(0,1,0));
+	//PxTransform newPos = Golf->getGlobalPose().transform(PxTransform(0, 0, -5.0f));
+	//PxTransform newPos = Golf->getGlobalPose().transform(PxTransform(posv));
+	//Arrow = gPhysics->createRigidStatic(newPos);//方向指示器
+
+	Arrow = gPhysics->createRigidStatic(PxTransform(posv.x,posv.y,posv.z-5.0f));//方向指示器
+
+	PxTransform arrowPose(PxQuat(PxHalfPi, PxVec3(0, 1, 0))); //旋转PxQuat(旋转角度弧度, 旋转绕轴)，默认以原点旋转
+
 	PxShape* arrowShape = PxRigidActorExt::createExclusiveShape(*Arrow, PxCapsuleGeometry(0.5f, 1.5f), *gMaterial);
+
+	arrowShape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, false);//关闭碰撞
 	arrowShape->setLocalPose(arrowPose);
 	gScene->addActor(*Arrow);
+	
 	return 0;
 }
 
 void hit()
 {
-	gScene->removeActor(*Arrow);//删除箭头
+	printf("hit");
+	Arrow->getGlobalPose();
+	
 	//gScene->removeActor(*Golf);//删除老的Golf
-	PxVec3 lacc = PxVec3(0, 0, -20.0f);
+	PxVec3 lacc = PxVec3(0, 0, -5.0f);//施加力的方向与大小
+	gScene->removeActor(*Arrow);//删除箭头
 	Golf->addForce(lacc, PxForceMode::eVELOCITY_CHANGE);
+	Golf->setSleepThreshold(20.0f);//休眠状态阈值
 	//Golf = createDynamic(Golf->getGlobalPose(), PxSphereGeometry(1.0f), PxVec3(0, 0, -1.0f) * 10);//朝某个方向发射Golf
 	HANDLE tem=CreateThread(NULL, 0, changeArrow, NULL, 0, NULL);//新建线程监听球的运动，停止时更新箭头
-	TerminateThread(tem, 0);
+	//TerminateThread(tem, 0);
 }
 
 void reset()
@@ -187,13 +204,17 @@ void initPhysics(bool interactive)
 	PxShape* aGolfShape = PxRigidActorExt::createExclusiveShape(*Golf,
 		PxSphereGeometry(1.0f), *gMaterial);/*形状、材质*/
 	PxRigidBodyExt::updateMassAndInertia(*Golf, 40.0f);/*设置密度（质量）*/
+	
 	Golf->setAngularDamping(0.5f);/*设置角度阻尼*/
 	Golf->setLinearDamping(0.4f);/*设置线性阻尼*/
 	gScene->addActor(*Golf);
 	/*应该还需要设置几个参数来控制 比如isSleeping()这种东西 比如配合按键操作来控制球的位置 或者击球的力的方向 大小*/
 
 	//方向指示箭头actor[3]
-	Arrow = gPhysics->createRigidStatic(PxTransform(PxVec3(30.0f, 0.0f, 27.0f)));//方向指示器
+	//Arrow = gPhysics->createRigidStatic(PxTransform(PxVec3(30.0f, 0.0f, 27.0f)));//方向指示器
+	PxTransform newPos = Golf->getGlobalPose().transform(PxTransform(0, 0, -5.0f));
+
+	Arrow = gPhysics->createRigidStatic(newPos);//方向指示器
 	PxTransform arrowPose(PxQuat(PxHalfPi, PxVec3(0, 1.0f, 0)));
 	PxShape* arrowShape = PxRigidActorExt::createExclusiveShape(*Arrow, PxCapsuleGeometry(0.5f, 1.5f), *gMaterial);
 	arrowShape->setFlag(PxShapeFlag:: eSIMULATION_SHAPE, false);//关闭碰撞
