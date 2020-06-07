@@ -81,7 +81,10 @@ PxRigidDynamic* createDynamic(const PxTransform& t, const PxGeometry& geometry, 
 PxRigidDynamic* Golf = nullptr;//把golf设置为全局访问
 PxRigidStatic* Arrow = nullptr;//方向指示箭头
 float arrowR = 5.0f;//箭头与球之间的距离
-int rotateDegree = 90;//每次旋转90度
+int rotateDegree = 45;//记录旋转角
+float halfRootOfTwo = (float) (sqrt(2)/2);
+PxVec3 rotateDirection[8] = {PxVec3(0,1,0),PxVec3(halfRootOfTwo,-halfRootOfTwo,0), PxVec3(1,0,0),PxVec3(halfRootOfTwo,halfRootOfTwo,0),
+							PxVec3(0,1,0), PxVec3(halfRootOfTwo,-halfRootOfTwo,0), PxVec3(1,0,0), PxVec3(halfRootOfTwo,halfRootOfTwo,0)};
 
 float toRad(int degree)//角度转弧度
 {
@@ -89,12 +92,13 @@ float toRad(int degree)//角度转弧度
 }
 
 							   //更新箭头的线程调用的函数
-void changeArrow()
+void renewArrow()
 {
 	while (!Golf->isSleeping());//当球还没停下时，loop
 								//球停下之后，摆一个新的箭头
 	printf("createArrow\n");
 	PxVec3 posv = Golf->getGlobalPose().p;//获取球的世界坐标  
+	rotateDegree = 45;//重置旋转角
 	//PxVec3 posv1 = PxVec3(posv.x + arrowR * cos(toRad(rotateDegree)), posv.y, posv.z - arrowR * sin(toRad(rotateDegree)));//箭头的位置 世界坐标
 	//PxQuat rotate = PxQuat(toRad(rotateDegree), PxVec3(0, 1, 0));//箭头的旋转角度 后面那个vec3坐标是物体坐标系 不是世界坐标系
 	//PxTransform position = PxTransform(posv1, rotate);//组合成transform变换矩阵
@@ -121,29 +125,25 @@ void hit()
 	gScene->removeActor(*Arrow);//删除箭头
 	Golf->addForce(force, PxForceMode::eVELOCITY_CHANGE);//施加力
 	Golf->setSleepThreshold(40.0f);//休眠状态阈值
-	std::thread renewArrow(changeArrow);//创建监听线程更新箭头
+	std::thread renewArrow(renewArrow);//创建监听线程更新箭头
 	renewArrow.detach();//使得线程脱离主线程的控制，执行完自动退出并且释放资源
 	//HANDLE tem=CreateThread(NULL, 0, changeArrow, NULL, 0, NULL);//新建线程监听球的运动，停止时更新箭头
 	//TerminateThread(tem, 0);
 }
 
-
 //对箭头进行旋转
 void rotateArrow()
 {
+	//变换的平面坐标系计算
+	float x = 5 * sin(toRad(rotateDegree - 180));
+	float z = 5 * cos(toRad(rotateDegree - 180));
+	PxVec3 posv(Golf->getGlobalPose().p + PxVec3(x,0.0,z));
+
 	gScene->removeActor(*Arrow);
-	PxVec3 posv = Golf->getGlobalPose().p - Arrow->getGlobalPose().p;//获取相对向量
-
-	//变换的平面坐标系计算bug！！！！
-	posv.x = posv.x - 5 * sin(toRad(rotateDegree));
-	posv.z = posv.z - 5 * cos(toRad(abs(rotateDegree - 90)));
-
-	posv = posv + Golf->getGlobalPose().p;
 	Arrow = gPhysics->createRigidStatic(PxTransform(posv));//根据球的世界坐标设置箭头位置来创建箭头
-	rotateDegree = (rotateDegree + 90) % 360;//改变角度，否则每次都只变60度了
-	//posv = posv.getNormalized();
+	rotateDegree = (rotateDegree + 45) % 360;//改变角度，否则每次都只变60度了
 
-	PxTransform arrowPose(PxQuat(PxHalfPi,PxVec3(1,0,0)));//设置箭头方向！！！！！！bug
+	PxTransform arrowPose(PxQuat(PxHalfPi,rotateDirection[rotateDegree == 0? 7:((rotateDegree/45) - 1)]));//设置箭头方向,有点复杂hhh
 	
 	PxShape* arrowShape = PxRigidActorExt::createExclusiveShape(*Arrow, PxCapsuleGeometry(0.5f, 1.5f), *gMaterial);//箭头形状
 	arrowShape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, false);//关闭碰撞
