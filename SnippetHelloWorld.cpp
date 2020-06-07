@@ -37,6 +37,7 @@
 #include <ctype.h>
 #include <thread>
 #include <cmath>
+#include <Windows.h>
 
 #include "PxPhysicsAPI.h"
 
@@ -82,6 +83,7 @@ PxRigidDynamic* Golf = nullptr;//把golf设置为全局访问
 PxRigidStatic* Arrow = nullptr;//方向指示箭头
 float arrowR = 5.0f;//箭头与球之间的距离
 int rotateDegree = 90;//记录旋转角
+bool won = false;
 
 
 float toRad(int degree)//角度转弧度
@@ -113,11 +115,26 @@ void renewArrow()
 	gScene->addActor(*Arrow);
 }
 
+//判断是否胜利，在球运动时新建线程判断
+void winning()
+{
+	while (!Golf->isSleeping())
+	{
+		//偷懒做法，以后要换成碰撞检测逻辑
+		if ((Golf->getGlobalPose().p - PxVec3(20.0f, 0.0, -65.0f)).magnitude() < 3.0f)//到达旗杆
+		{
+			int x = MessageBox(GetForegroundWindow(), "恭喜你，你的球到达了旗杆！\n 按任意键结束游戏哦！", "【胜利】", 1);
+			printf("%d\n", x);
+			won = true;
+		}
+	}
+}
+
 void hit()
 {
 	if (!Golf->isSleeping()) return;//当球没有停下时，不允许打击
-
 	printf("hit\n");
+
 	PxVec3 arrPos = Arrow->getGlobalPose().p;
 	PxVec3 golfPos = Golf->getGlobalPose().p;
 	PxVec3 force = (arrPos - golfPos).getNormalized() * 20;//实现了LY的思路
@@ -128,8 +145,8 @@ void hit()
 	Golf->setSleepThreshold(40.0f);//休眠状态阈值
 	std::thread renewArrow(renewArrow);//创建监听线程更新箭头
 	renewArrow.detach();//使得线程脱离主线程的控制，执行完自动退出并且释放资源
-						//HANDLE tem=CreateThread(NULL, 0, changeArrow, NULL, 0, NULL);//新建线程监听球的运动，停止时更新箭头
-						//TerminateThread(tem, 0);
+	std::thread wining(winning);//创建线程监听胜利条件
+	wining.detach();//同上
 }
 
 //对箭头进行旋转
@@ -319,6 +336,7 @@ void cleanupPhysics(bool interactive)/*顺序相反地release*/
 
 void keyPress(unsigned char key, const PxTransform& camera)/*按键输入处理，这部分应该挺关键的*/
 {
+	if (won) exit(0);
 	switch (toupper(key))
 	{
 		//case 'H':	createStack(PxTransform(PxVec3(10,0,stackZ-=16.0f)), 10, 2.0f);						break;
