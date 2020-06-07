@@ -134,17 +134,38 @@ void hit()
 //¶Ô¼ıÍ·½øĞĞĞı×ª
 void rotateArrow()
 {
+	rotateDegree = (rotateDegree + 2) % 360;//¸Ä±ä½Ç¶È£¬·ñÔòÃ¿´Î¶¼Ö»±ä60¶ÈÁË
 	//±ä»»µÄÆ½Ãæ×ø±êÏµ¼ÆËã
-	float x = 5 * sin(toRad(rotateDegree - 180));
-	float z = 5 * cos(toRad(rotateDegree - 180));
-	PxVec3 posv(Golf->getGlobalPose().p + PxVec3(x,0.0,z));
+	float x = arrowR * cos(toRad(rotateDegree));
+	float z = -arrowR * sin(toRad(rotateDegree));
+	PxVec3 posv(Golf->getGlobalPose().p + PxVec3(x,0,z));
 
 	gScene->removeActor(*Arrow);
 	Arrow = gPhysics->createRigidStatic(PxTransform(posv));//¸ù¾İÇòµÄÊÀ½ç×ø±êÉèÖÃ¼ıÍ·Î»ÖÃÀ´´´½¨¼ıÍ·
-	rotateDegree = (rotateDegree + 45) % 360;//¸Ä±ä½Ç¶È£¬·ñÔòÃ¿´Î¶¼Ö»±ä60¶ÈÁË
-
-	PxTransform arrowPose(PxQuat(PxHalfPi,rotateDirection[rotateDegree == 0? 7:((rotateDegree/45) - 1)]));//ÉèÖÃ¼ıÍ··½Ïò,ÓĞµã¸´ÔÓhhh
 	
+
+	//PxTransform arrowPose(PxQuat(PxHalfPi,rotateDirection[rotateDegree == 0? 7:((rotateDegree/45) - 1)]));//ÉèÖÃ¼ıÍ··½Ïò,ÓĞµã¸´ÔÓhhh
+	PxTransform arrowPose(PxQuat(toRad(rotateDegree), PxVec3(0, 1, 0)));
+	PxShape* arrowShape = PxRigidActorExt::createExclusiveShape(*Arrow, PxCapsuleGeometry(0.5f, 1.5f), *gMaterial);//¼ıÍ·ĞÎ×´
+	arrowShape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, false);//¹Ø±ÕÅö×²
+	arrowShape->setLocalPose(arrowPose);//ÉèÖÃ¼ıÍ··½ÏòÎªË®Æ½ÏòÇ°
+	gScene->addActor(*Arrow);
+}
+
+void rotateArrow2()
+{
+	rotateDegree = (rotateDegree - 2) % 360;//¸Ä±ä½Ç¶È£¬·ñÔòÃ¿´Î¶¼Ö»±ä60¶ÈÁË
+	//±ä»»µÄÆ½Ãæ×ø±êÏµ¼ÆËã
+	float x = arrowR * cos(toRad(rotateDegree));
+	float z = -arrowR * sin(toRad(rotateDegree));
+	PxVec3 posv(Golf->getGlobalPose().p + PxVec3(x, 0, z));
+
+	gScene->removeActor(*Arrow);
+	Arrow = gPhysics->createRigidStatic(PxTransform(posv));//¸ù¾İÇòµÄÊÀ½ç×ø±êÉèÖÃ¼ıÍ·Î»ÖÃÀ´´´½¨¼ıÍ·
+
+
+	//PxTransform arrowPose(PxQuat(PxHalfPi,rotateDirection[rotateDegree == 0? 7:((rotateDegree/45) - 1)]));//ÉèÖÃ¼ıÍ··½Ïò,ÓĞµã¸´ÔÓhhh
+	PxTransform arrowPose(PxQuat(toRad(rotateDegree), PxVec3(0, 1, 0)));
 	PxShape* arrowShape = PxRigidActorExt::createExclusiveShape(*Arrow, PxCapsuleGeometry(0.5f, 1.5f), *gMaterial);//¼ıÍ·ĞÎ×´
 	arrowShape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, false);//¹Ø±ÕÅö×²
 	arrowShape->setLocalPose(arrowPose);//ÉèÖÃ¼ıÍ··½ÏòÎªË®Æ½ÏòÇ°
@@ -299,7 +320,8 @@ void keyPress(unsigned char key, const PxTransform& camera)/*°´¼üÊäÈë´¦Àí£¬Õâ²¿·
 	{
 		//case 'H':	createStack(PxTransform(PxVec3(10,0,stackZ-=16.0f)), 10, 2.0f);						break;
 		//case ' ':	createDynamic(camera, PxSphereGeometry(1.0f), camera.rotate(PxVec3(0,0,-1))*100);	break;/*Ä¿Ç°ÈÔÈ»±£ÁôÁË¿Õ¸ñ¼ü·¢ÉäÇò ËÙ¶ÈÎª*100*/
-	case 'L':	rotateArrow(); break;
+	case 'Q':	rotateArrow(); break;
+	case 'E':	rotateArrow2(); break;
 	case 'K':	hit();	break;
 	case 'R':   reset(); break;
 	}
