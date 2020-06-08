@@ -121,7 +121,7 @@ void winning()
 	while (!Golf->isSleeping())
 	{
 		//偷懒做法，以后要换成碰撞检测逻辑
-		if ((Golf->getGlobalPose().p - PxVec3(20.0f, 0.0, -65.0f)).magnitude() < 3.0f)//到达旗杆
+		if ((Golf->getGlobalPose().p - PxVec3(20.0f, Golf->getGlobalPose().p.y, -65.0f)).magnitude() < 3.0f)//到达旗杆
 		{
 			int x = MessageBox(GetForegroundWindow(), "恭喜你，你的球到达了旗杆！\n 按任意键结束游戏哦！", "【胜利】", 1);
 			printf("%d\n", x);
@@ -130,6 +130,7 @@ void winning()
 	}
 }
 
+//击打球
 void hit()
 {
 	if (!Golf->isSleeping()) return;//当球没有停下时，不允许打击
@@ -139,10 +140,10 @@ void hit()
 	PxVec3 golfPos = Golf->getGlobalPose().p;
 	PxVec3 force = (arrPos - golfPos).getNormalized() * 20;//实现了LY的思路
 														   //施加力的方向与大小 提供思路：方向 = 箭头的世界坐标 - 球的世界坐标 ，getGlobalPose返回的是位置+旋转信息，getGlobalPose().p这样得到的是位置的Vec3
-
+	force.y = force.y + 5.0f;//增加y轴 往上打
 	gScene->removeActor(*Arrow);//删除箭头
 	Golf->addForce(force, PxForceMode::eVELOCITY_CHANGE);//施加力
-	Golf->setSleepThreshold(40.0f);//休眠状态阈值
+	Golf->setSleepThreshold(10.0f);//休眠状态阈值
 	std::thread renewArrow(renewArrow);//创建监听线程更新箭头
 	renewArrow.detach();//使得线程脱离主线程的控制，执行完自动退出并且释放资源
 	std::thread wining(winning);//创建线程监听胜利条件
@@ -192,6 +193,7 @@ void rotateArrow2()
 	gScene->addActor(*Arrow);
 }
 
+//球复位 并非场景复位
 void reset()
 {
 	if (!Golf->isSleeping()) return;//当球没有停下时，禁止重置，防止发生bug
@@ -209,19 +211,37 @@ void reset()
 	//gScene->addActor(*Golf);
 }
 
+//创建方块
 void createStack(const PxTransform& t, PxU32 size, PxReal halfExtent)
 {
+	//围墙
+	PxRigidStatic* Wall1 = gPhysics->createRigidStatic(PxTransform(PxVec3(30.0f, 2.0f, 40.0f)));
+	PxShape* WallShape1 = PxRigidActorExt::createExclusiveShape(*Wall1, PxBoxGeometry(30.0f, 2.0f, 1.0f), *gMaterial);
+	gScene->addActor(*Wall1);
+
+	PxRigidStatic* Wall2 = gPhysics->createRigidStatic(PxTransform(PxVec3(30.0f, 2.0f, -70.0f)));
+	PxShape* WallShape2 = PxRigidActorExt::createExclusiveShape(*Wall2, PxBoxGeometry(30.0f, 2.0f, 1.0f), *gMaterial);
+	gScene->addActor(*Wall2);
+
+	PxRigidStatic* Wall3 = gPhysics->createRigidStatic(PxTransform(PxVec3(0, 2.0f, -15.0f)));
+	PxShape* WallShape3 = PxRigidActorExt::createExclusiveShape(*Wall3, PxBoxGeometry(1.0f, 2.0f, 55.0f), *gMaterial);
+	gScene->addActor(*Wall3);
+
+	PxRigidStatic* Wall4 = gPhysics->createRigidStatic(PxTransform(PxVec3(60.0f, 2.0f, -15.0f)));
+	PxShape* WallShape4 = PxRigidActorExt::createExclusiveShape(*Wall4, PxBoxGeometry(1.0f, 2.0f, 55.0f), *gMaterial);
+	gScene->addActor(*Wall4);
+
 	/*创建geometry模型，详情看文档Geometry*/
-	PxShape* shape = gPhysics->createShape(PxBoxGeometry(halfExtent, halfExtent, halfExtent), *gMaterial);/*长方体 长宽高*/
-																										  //PxShape* shape = gPhysics->createShape(PxSphereGeometry(halfExtent), *gMaterial);/*球体 半径*/
+	//PxShape* shape = gPhysics->createShape(PxBoxGeometry(halfExtent, halfExtent, halfExtent), *gMaterial);/*长方体 长宽高*/
+	PxShape* shape = gPhysics->createShape(PxSphereGeometry(halfExtent), *gMaterial);/*球体 半径*/
 	for (PxU32 i = 0; i<size; i++)
 	{
 		for (PxU32 j = 0; j<size - i; j++)
 		{
-			PxTransform localTm(PxVec3(PxReal(j * 2) - PxReal(size - i), PxReal(i * 2 + 1), 0) * halfExtent);/*计算出堆块位置*/
+			PxTransform localTm(PxVec3(PxReal(j * 2) - PxReal(size - i), 1, PxReal(i * 2 + 1)) * halfExtent);/*计算出堆块位置*/
 			PxRigidDynamic* body = gPhysics->createRigidDynamic(t.transform(localTm));
 			body->attachShape(*shape);
-			PxRigidBodyExt::updateMassAndInertia(*body, 10.0f);
+			PxRigidBodyExt::updateMassAndInertia(*body, 0.2f);
 			gScene->addActor(*body);
 		}
 	}
@@ -233,7 +253,7 @@ void createScene()
 	/*材质*/
 	gMaterial = gPhysics->createMaterial(0.5f, 0.5f, 0.8f);/*静摩擦力 动摩擦力 弹性恢复系数：距离地面1m的球弹起来0.6m的高度*/
 
-														   /*场景平面actor[0]*/
+	/*场景平面actor[0]*/
 	PxRigidStatic* groundPlane = PxCreatePlane(*gPhysics, PxPlane(0, 1, 0, 0), *gMaterial);
 	gScene->addActor(*groundPlane);
 
@@ -252,8 +272,8 @@ void createScene()
 		PxSphereGeometry(1.0f), *gMaterial);/*形状、材质*/
 	PxRigidBodyExt::updateMassAndInertia(*Golf, 40.0f);/*设置密度（质量）*/
 
-	Golf->setAngularDamping(0.5f);/*设置角度阻尼*/
-	Golf->setLinearDamping(0.4f);/*设置线性阻尼*/
+	Golf->setAngularDamping(0.2f);/*设置角度阻尼*/
+	Golf->setLinearDamping(0.2f);/*设置线性阻尼*/
 	gScene->addActor(*Golf);
 	/*应该还需要设置几个参数来控制 比如isSleeping()这种东西 比如配合按键操作来控制球的位置 或者击球的力的方向 大小*/
 
@@ -269,8 +289,8 @@ void createScene()
 	gScene->addActor(*Arrow);
 
 	/*画的立方体堆*/
-	for (PxU32 i = 0; i < 4; i++)
-		createStack(PxTransform(PxVec3(30, 0, stackZ -= 16.0f)), 10, 2.0f);
+	for (PxU32 i = 0; i < 1; i++)
+		createStack(PxTransform(PxVec3(30, 0, stackZ -= 16.0f)), 5, 2.0f);
 
 
 
@@ -336,7 +356,10 @@ void cleanupPhysics(bool interactive)/*顺序相反地release*/
 
 void keyPress(unsigned char key, const PxTransform& camera)/*按键输入处理，这部分应该挺关键的*/
 {
-	if (won) exit(0);
+	if (won)
+	{
+		exit(0);
+	}
 	switch (toupper(key))
 	{
 		//case 'H':	createStack(PxTransform(PxVec3(10,0,stackZ-=16.0f)), 10, 2.0f);						break;
