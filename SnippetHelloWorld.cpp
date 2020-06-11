@@ -57,15 +57,15 @@ using namespace physx;
 PxDefaultAllocator		gAllocator;
 PxDefaultErrorCallback	gErrorCallback;
 
-PxFoundation*			gFoundation = NULL;
-PxPhysics*				gPhysics = NULL;
+PxFoundation* gFoundation = NULL;
+PxPhysics* gPhysics = NULL;
 
-PxDefaultCpuDispatcher*	gDispatcher = NULL;
-PxScene*				gScene = NULL;
+PxDefaultCpuDispatcher* gDispatcher = NULL;
+PxScene* gScene = NULL;
 
-PxMaterial*				gMaterial = NULL;
+PxMaterial* gMaterial = NULL;
 
-PxPvd*                  gPvd = NULL;
+PxPvd* gPvd = NULL;
 
 PxReal stackZ = 10.0f;/*≥ı º∂—µƒŒª÷√*/
 
@@ -85,11 +85,28 @@ float arrowR = 5.0f;//º˝Õ∑”Î«Ú÷Æº‰µƒæ‡¿Î
 int rotateDegree = 90;//º«¬º–˝◊™Ω«
 bool won = false;
 
-
 float toRad(int degree)//Ω«∂»◊™ª°∂»
 {
 	return degree * (PxPi / 180.0f);
 }
+
+
+void updateArrow(float arrowR, int rotateDegree)
+{
+	float x = arrowR * cos(toRad(rotateDegree));
+	float z = -arrowR * sin(toRad(rotateDegree));
+	PxVec3 posv(Golf->getGlobalPose().p + PxVec3(x, 0, z));
+
+	gScene->removeActor(*Arrow);
+	Arrow = gPhysics->createRigidStatic(PxTransform(posv));//∏˘æ›«Úµƒ ¿ΩÁ◊¯±Í…Ë÷√º˝Õ∑Œª÷√¿¥¥¥Ω®º˝Õ∑
+
+	PxTransform arrowPose(PxQuat(toRad(rotateDegree), PxVec3(0, 1, 0)));
+	PxShape* arrowShape = PxRigidActorExt::createExclusiveShape(*Arrow, PxCapsuleGeometry(0.5f, 1.5f), *gMaterial);//º˝Õ∑–Œ◊¥
+	arrowShape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, false);//πÿ±’≈ˆ◊≤
+	arrowShape->setLocalPose(arrowPose);//…Ë÷√º˝Õ∑∑ΩœÚ
+	gScene->addActor(*Arrow);
+}
+
 
 //∏¸–¬º˝Õ∑µƒœﬂ≥Ãµ˜”√µƒ∫Ø ˝
 void renewArrow()
@@ -138,10 +155,10 @@ void hit()
 
 	PxVec3 arrPos = Arrow->getGlobalPose().p;
 	PxVec3 golfPos = Golf->getGlobalPose().p;
-	float forceMagnitude = ((arrPos.z - golfPos.z) - 3.0) * 2.5;
+	float forceMagnitude = (arrPos - golfPos).magnitude() * 2.5;
 	PxVec3 force = (arrPos - golfPos).getNormalized() * abs(forceMagnitude);// µœ÷¡ÀLYµƒÀº¬∑
 														   // ©º”¡¶µƒ∑ΩœÚ”Î¥Û–° Ã·π©Àº¬∑£∫∑ΩœÚ = º˝Õ∑µƒ ¿ΩÁ◊¯±Í - «Úµƒ ¿ΩÁ◊¯±Í £¨getGlobalPose∑µªÿµƒ «Œª÷√+–˝◊™–≈œ¢£¨getGlobalPose().p’‚—˘µ√µΩµƒ «Œª÷√µƒVec3
-	force.y = force.y + 5.0f;//‘ˆº”y÷· Õ˘…œ¥Ú
+	//force.y = force.y + 5.0f;//‘ˆº”y÷· Õ˘…œ¥Ú
 	gScene->removeActor(*Arrow);//…æ≥˝º˝Õ∑
 	Golf->addForce(force, PxForceMode::eVELOCITY_CHANGE);// ©º”¡¶
 	Golf->setSleepThreshold(10.0f);//–›√ﬂ◊¥Ã¨„–÷µ
@@ -157,20 +174,7 @@ void rotateArrow()
 	if (!Golf->isSleeping()) return;
 	rotateDegree = (rotateDegree + 2) % 360;//∏ƒ±‰Ω«∂»£¨∑Ò‘Ú√ø¥Œ∂º÷ª±‰60∂»¡À
 											//±‰ªªµƒ∆Ω√Ê◊¯±Íœµº∆À„
-	float x = arrowR * cos(toRad(rotateDegree));
-	float z = -arrowR * sin(toRad(rotateDegree));
-	PxVec3 posv(Golf->getGlobalPose().p + PxVec3(x, 0, z));
-
-	gScene->removeActor(*Arrow);
-	Arrow = gPhysics->createRigidStatic(PxTransform(posv));//∏˘æ›«Úµƒ ¿ΩÁ◊¯±Í…Ë÷√º˝Õ∑Œª÷√¿¥¥¥Ω®º˝Õ∑
-
-
-														   //PxTransform arrowPose(PxQuat(PxHalfPi,rotateDirection[rotateDegree == 0? 7:((rotateDegree/45) - 1)]));//…Ë÷√º˝Õ∑∑ΩœÚ,”–µ„∏¥‘”hhh
-	PxTransform arrowPose(PxQuat(toRad(rotateDegree), PxVec3(0, 1, 0)));
-	PxShape* arrowShape = PxRigidActorExt::createExclusiveShape(*Arrow, PxCapsuleGeometry(0.5f, 1.5f), *gMaterial);//º˝Õ∑–Œ◊¥
-	arrowShape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, false);//πÿ±’≈ˆ◊≤
-	arrowShape->setLocalPose(arrowPose);//…Ë÷√º˝Õ∑∑ΩœÚ
-	gScene->addActor(*Arrow);
+	updateArrow(arrowR, rotateDegree);
 }
 
 void rotateArrow2()
@@ -178,54 +182,22 @@ void rotateArrow2()
 	if (!Golf->isSleeping()) return;
 	rotateDegree = (rotateDegree - 2) % 360;//∏ƒ±‰Ω«∂»£¨∑Ò‘Ú√ø¥Œ∂º÷ª±‰60∂»¡À
 											//±‰ªªµƒ∆Ω√Ê◊¯±Íœµº∆À„
-	float x = arrowR * cos(toRad(rotateDegree));
-	float z = -arrowR * sin(toRad(rotateDegree));
-	PxVec3 posv(Golf->getGlobalPose().p + PxVec3(x, 0, z));
-
-	gScene->removeActor(*Arrow);
-	Arrow = gPhysics->createRigidStatic(PxTransform(posv));//∏˘æ›«Úµƒ ¿ΩÁ◊¯±Í…Ë÷√º˝Õ∑Œª÷√¿¥¥¥Ω®º˝Õ∑
-
-
-														   //PxTransform arrowPose(PxQuat(PxHalfPi,rotateDirection[rotateDegree == 0? 7:((rotateDegree/45) - 1)]));//…Ë÷√º˝Õ∑∑ΩœÚ,”–µ„∏¥‘”hhh
-	PxTransform arrowPose(PxQuat(toRad(rotateDegree), PxVec3(0, 1, 0)));
-	PxShape* arrowShape = PxRigidActorExt::createExclusiveShape(*Arrow, PxCapsuleGeometry(0.5f, 1.5f), *gMaterial);//º˝Õ∑–Œ◊¥
-	arrowShape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, false);//πÿ±’≈ˆ◊≤
-	arrowShape->setLocalPose(arrowPose);//…Ë÷√º˝Õ∑∑ΩœÚ
-	gScene->addActor(*Arrow);
+	updateArrow(arrowR, rotateDegree);
 }
 
 void Harder()
 {
 	if (!Golf->isSleeping()) return;
-	PxVec3 pos = Arrow->getGlobalPose().p;
-	PxVec3 golfPos = Golf->getGlobalPose().p;
-	float forceMagnitude = abs(pos.z - golfPos.z);
-	if (forceMagnitude >= 9) return;
-	gScene->removeActor(*Arrow);
-	pos.z -= 0.2;
-	Arrow = gPhysics->createRigidStatic(PxTransform(pos));//∏˘æ›«Úµƒ ¿ΩÁ◊¯±Í…Ë÷√º˝Õ∑Œª÷√¿¥¥¥Ω®º˝Õ∑														 
-	PxTransform arrowPose(PxQuat(toRad(rotateDegree), PxVec3(0, 1, 0)));
-	PxShape* arrowShape = PxRigidActorExt::createExclusiveShape(*Arrow, PxCapsuleGeometry(0.5f, 1.5f), *gMaterial);//º˝Õ∑–Œ◊¥
-	arrowShape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, false);//πÿ±’≈ˆ◊≤
-	arrowShape->setLocalPose(arrowPose);//…Ë÷√º˝Õ∑∑ΩœÚ
-	gScene->addActor(*Arrow);
+	arrowR = (arrowR <= 9.0f) ? arrowR + 0.2f : arrowR;
+
+	updateArrow(arrowR, rotateDegree);
 }
 
 void Weaker()
 {
 	if (!Golf->isSleeping()) return;
-	PxVec3 pos = Arrow->getGlobalPose().p;
-	PxVec3 golfPos = Golf->getGlobalPose().p;
-	float forceMagnitude = abs(pos.z - golfPos.z);
-	if (forceMagnitude <= 3) return;
-	gScene->removeActor(*Arrow);
-	pos.z += 0.2;
-	Arrow = gPhysics->createRigidStatic(PxTransform(pos));//∏˘æ›«Úµƒ ¿ΩÁ◊¯±Í…Ë÷√º˝Õ∑Œª÷√¿¥¥¥Ω®º˝Õ∑														 
-	PxTransform arrowPose(PxQuat(toRad(rotateDegree), PxVec3(0, 1, 0)));
-	PxShape* arrowShape = PxRigidActorExt::createExclusiveShape(*Arrow, PxCapsuleGeometry(0.5f, 1.5f), *gMaterial);//º˝Õ∑–Œ◊¥
-	arrowShape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, false);//πÿ±’≈ˆ◊≤
-	arrowShape->setLocalPose(arrowPose);//…Ë÷√º˝Õ∑∑ΩœÚ
-	gScene->addActor(*Arrow);
+	arrowR = (arrowR >= 3.0f) ? arrowR - 0.2f : arrowR;
+	updateArrow(arrowR, rotateDegree);
 }
 
 //«Ú∏¥Œª ≤¢∑«≥°æ∞∏¥Œª
@@ -269,9 +241,9 @@ void createStack(const PxTransform& t, PxU32 size, PxReal halfExtent)
 	/*¥¥Ω®geometryƒ£–Õ£¨œÍ«Èø¥ŒƒµµGeometry*/
 	//PxShape* shape = gPhysics->createShape(PxBoxGeometry(halfExtent, halfExtent, halfExtent), *gMaterial);/*≥§∑ΩÃÂ ≥§øÌ∏ﬂ*/
 	PxShape* shape = gPhysics->createShape(PxSphereGeometry(halfExtent), *gMaterial);/*«ÚÃÂ ∞Îæ∂*/
-	for (PxU32 i = 0; i<size; i++)
+	for (PxU32 i = 0; i < size; i++)
 	{
-		for (PxU32 j = 0; j<size - i; j++)
+		for (PxU32 j = 0; j < size - i; j++)
 		{
 			PxTransform localTm(PxVec3(PxReal(j * 2) - PxReal(size - i), 1, PxReal(i * 2 + 1)) * halfExtent);/*º∆À„≥ˆ∂—øÈŒª÷√*/
 			PxRigidDynamic* body = gPhysics->createRigidDynamic(t.transform(localTm));
@@ -408,7 +380,7 @@ void keyPress(unsigned char key, const PxTransform& camera)/*∞¥º¸ ‰»Î¥¶¿Ì£¨’‚≤ø∑
 	}
 }
 
-int snippetMain(int, const char*const*)
+int snippetMain(int, const char* const*)
 {
 #ifdef RENDER_SNIPPET
 	extern void renderLoop();
@@ -416,7 +388,7 @@ int snippetMain(int, const char*const*)
 #else
 	static const PxU32 frameCount = 100;
 	initPhysics(false);
-	for (PxU32 i = 0; i<frameCount; i++)
+	for (PxU32 i = 0; i < frameCount; i++)
 		stepPhysics(false);
 	cleanupPhysics(false);
 #endif
