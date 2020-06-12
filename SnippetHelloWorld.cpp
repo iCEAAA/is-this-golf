@@ -79,7 +79,7 @@ PxRigidDynamic* createDynamic(const PxTransform& t, const PxGeometry& geometry, 
 	return dynamic;
 }
 
-PxRigidDynamic* Golf = nullptr;//把golf设置为全局访问
+extern PxRigidDynamic* Golf = nullptr;//把golf设置为全局访问
 PxRigidStatic* Arrow = nullptr;//方向指示箭头
 float arrowR = 5.0f;//箭头与球之间的距离
 int rotateDegree = 90;//记录旋转角
@@ -155,7 +155,7 @@ void hit()
 
 	PxVec3 arrPos = Arrow->getGlobalPose().p;
 	PxVec3 golfPos = Golf->getGlobalPose().p;
-	float forceMagnitude = (arrPos - golfPos).magnitude() * 2.5;
+	float forceMagnitude = (arrPos - golfPos).magnitude() * 3;
 	PxVec3 force = (arrPos - golfPos).getNormalized() * abs(forceMagnitude);//实现了LY的思路
 														   //施加力的方向与大小 提供思路：方向 = 箭头的世界坐标 - 球的世界坐标 ，getGlobalPose返回的是位置+旋转信息，getGlobalPose().p这样得到的是位置的Vec3
 	//force.y = force.y + 5.0f;//增加y轴 往上打
@@ -248,7 +248,7 @@ void createStack(const PxTransform& t, PxU32 size, PxReal halfExtent)
 			PxTransform localTm(PxVec3(PxReal(j * 2) - PxReal(size - i), 1, PxReal(i * 2 + 1)) * halfExtent);/*计算出堆块位置*/
 			PxRigidDynamic* body = gPhysics->createRigidDynamic(t.transform(localTm));
 			body->attachShape(*shape);
-			PxRigidBodyExt::updateMassAndInertia(*body, 0.2f);
+			PxRigidBodyExt::updateMassAndInertia(*body, 0.5f);
 			gScene->addActor(*body);
 		}
 	}

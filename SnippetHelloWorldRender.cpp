@@ -42,7 +42,7 @@ extern void initPhysics(bool interactive);
 extern void stepPhysics(bool interactive);	
 extern void cleanupPhysics(bool interactive);
 extern void keyPress(unsigned char key, const PxTransform& camera);
-
+extern PxRigidDynamic* Golf;
 
 namespace
 {
@@ -71,12 +71,16 @@ void idleCallback()
 {
 	glutPostRedisplay();
 }
-
+PxVec3 get_location()
+{
+	return Golf->getGlobalPose().p;
+}
 void renderCallback()
 {
 	stepPhysics(true);/*每帧调用，simulate，fetchresult*/
 
-	Snippets::startRender(sCamera->getEye(), sCamera->getDir());
+	Snippets::startRender(get_location() + sCamera->getEye(), sCamera->getDir());
+	//Snippets::startRender(sCamera->getEye(), sCamera->getDir());
 
 	PxScene* scene;/*创建scene*/
 	PxGetPhysics().getScenes(&scene,1);
@@ -85,10 +89,6 @@ void renderCallback()
 	{
 		std::vector<PxRigidActor*> actors(nbActors);
 		scene->getActors(PxActorTypeFlag::eRIGID_DYNAMIC | PxActorTypeFlag::eRIGID_STATIC, reinterpret_cast<PxActor**>(&actors[0]), nbActors);
-		//Snippets::renderActors(&actors[0], static_cast<PxU32>(1), true, PxVec3(0.0f, 1.0f, 0.0f));/*地面*/
-		//Snippets::renderActors(&actors[1], static_cast<PxU32>(1), true, PxVec3(1.0f, 1.0f, 1.0f));/*旗杆*/
-		//Snippets::renderActors(&actors[2], static_cast<PxU32>(actors.size() - 3), true, PxVec3(0.0f, 0.5f, 0.5f));/*堆块*/
-		//Snippets::renderActors(&actors[actors.size() - 1], static_cast<PxU32>(1), true, PxVec3(0.9f, 0.9f, 0.9f));/*球*/
 		/*这里对每个actor进行渲染*/
 		Snippets::renderActors(&actors[0], static_cast<PxU32>(1), true, PxVec3(0.0f, 1.0f, 0.0f));/*（actors，numActors，shadow，color）*/
 		Snippets::renderActors(&actors[1], static_cast<PxU32>(1), true, PxVec3(1.0f, 1.0f, 1.0f));
@@ -108,9 +108,9 @@ void exitCallback(void)
 
 void renderLoop()
 {
-	sCamera = new Snippets::Camera(PxVec3(50.0f, 30.0f, 50.0f), PxVec3(-0.5f,-0.8f,-1.0f));/*摄像机初始位置，摄像机初始面向*/
+	sCamera = new Snippets::Camera(PxVec3(30.0f,30.0f,30.0f), PxVec3(-0.5f,-0.5f,-0.5f));/*摄像机初始位置，摄像机初始面向*/
 
-	Snippets::setupDefaultWindow("PhysX Snippet HelloWorld");
+	Snippets::setupDefaultWindow("PhysX Snippet Golf");
 	Snippets::setupDefaultRenderState();
 
 	glutIdleFunc(idleCallback);/*一堆回调函数*/
