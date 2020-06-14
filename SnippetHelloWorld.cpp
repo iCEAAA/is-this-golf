@@ -101,7 +101,7 @@ void updateArrow(float arrowR, int rotateDegree)
 	Arrow = gPhysics->createRigidStatic(PxTransform(posv));//根据球的世界坐标设置箭头位置来创建箭头
 
 	PxTransform arrowPose(PxQuat(toRad(rotateDegree), PxVec3(0, 1, 0)));
-	PxShape* arrowShape = PxRigidActorExt::createExclusiveShape(*Arrow, PxCapsuleGeometry(0.5f, 1.5f), *gMaterial);//箭头形状
+	PxShape* arrowShape = PxRigidActorExt::createExclusiveShape(*Arrow, PxCapsuleGeometry(0.5f, arrowR-2.0f), *gMaterial);//箭头形状
 	arrowShape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, false);//关闭碰撞
 	arrowShape->setLocalPose(arrowPose);//设置箭头方向
 	gScene->addActor(*Arrow);
@@ -125,7 +125,7 @@ void renewArrow()
 	//rotateDegree = 90;//重置旋转角
 	//Arrow = gPhysics->createRigidStatic(PxTransform(posv -= PxVec3(0.0f, 0.0f, 5.0f)));//根据球的世界坐标设置箭头位置来创建箭头
 	//PxTransform arrowPose(PxQuat(PxHalfPi, PxVec3(0, 1, 0)));
-	PxShape* arrowShape = PxRigidActorExt::createExclusiveShape(*Arrow, PxCapsuleGeometry(0.5f, 1.5f), *gMaterial);//箭头形状
+	PxShape* arrowShape = PxRigidActorExt::createExclusiveShape(*Arrow, PxCapsuleGeometry(0.5f, arrowR - 2.0f), *gMaterial);//箭头形状
 	arrowShape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, false);//关闭碰撞
 	arrowShape->setLocalPose(arrowPose);//设置箭头方向为水平向前
 										//Arrow->setGlobalPose(position);
@@ -155,10 +155,10 @@ void hit()
 
 	PxVec3 arrPos = Arrow->getGlobalPose().p;
 	PxVec3 golfPos = Golf->getGlobalPose().p;
-	float forceMagnitude = (arrPos - golfPos).magnitude() * 3;
+	float forceMagnitude = (arrPos - golfPos).magnitude() * 5;
 	PxVec3 force = (arrPos - golfPos).getNormalized() * abs(forceMagnitude);//实现了LY的思路
-														   //施加力的方向与大小 提供思路：方向 = 箭头的世界坐标 - 球的世界坐标 ，getGlobalPose返回的是位置+旋转信息，getGlobalPose().p这样得到的是位置的Vec3
-	//force.y = force.y + 5.0f;//增加y轴 往上打
+	//施加力的方向与大小 提供思路：方向 = 箭头的世界坐标 - 球的世界坐标 ，getGlobalPose返回的是位置+旋转信息，getGlobalPose().p这样得到的是位置的Vec3
+	force.y = force.y + 5.0f;//增加y轴 往上打
 	gScene->removeActor(*Arrow);//删除箭头
 	Golf->addForce(force, PxForceMode::eVELOCITY_CHANGE);//施加力
 	Golf->setSleepThreshold(10.0f);//休眠状态阈值
@@ -211,7 +211,7 @@ void reset()
 	Golf->setAngularVelocity(PxVec3(0, 0, 0), 1);/*角度速度*/
 	Arrow->setGlobalPose(PxTransform(PxVec3(30.0f, 1.0f, 25.0f)));
 	PxTransform arrowPose(PxQuat(PxHalfPi, PxVec3(0, 1.0f, 0)));
-	PxShape* arrowShape = PxRigidActorExt::createExclusiveShape(*Arrow, PxCapsuleGeometry(0.5f, 1.5f), *gMaterial);
+	PxShape* arrowShape = PxRigidActorExt::createExclusiveShape(*Arrow, PxCapsuleGeometry(0.5f, arrowR - 2.0f), *gMaterial);
 	arrowShape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, false);//关闭碰撞
 	arrowShape->setLocalPose(arrowPose);
 	gScene->addActor(*Arrow);
@@ -248,7 +248,7 @@ void createStack(const PxTransform& t, PxU32 size, PxReal halfExtent)
 			PxTransform localTm(PxVec3(PxReal(j * 2) - PxReal(size - i), 1, PxReal(i * 2 + 1)) * halfExtent);/*计算出堆块位置*/
 			PxRigidDynamic* body = gPhysics->createRigidDynamic(t.transform(localTm));
 			body->attachShape(*shape);
-			PxRigidBodyExt::updateMassAndInertia(*body, 0.5f);
+			PxRigidBodyExt::updateMassAndInertia(*body, 1.0f);
 			gScene->addActor(*body);
 		}
 	}
@@ -290,7 +290,7 @@ void createScene()
 
 	Arrow = gPhysics->createRigidStatic(newPos);//方向指示器
 	PxTransform arrowPose(PxQuat(PxHalfPi, PxVec3(0, 1.0f, 0)));
-	PxShape* arrowShape = PxRigidActorExt::createExclusiveShape(*Arrow, PxCapsuleGeometry(0.5f, 1.5f), *gMaterial);
+	PxShape* arrowShape = PxRigidActorExt::createExclusiveShape(*Arrow, PxCapsuleGeometry(0.5f, arrowR - 2.0f), *gMaterial);
 	arrowShape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, false);//关闭碰撞
 	arrowShape->setLocalPose(arrowPose);
 	gScene->addActor(*Arrow);
@@ -299,7 +299,7 @@ void createScene()
 	for (PxU32 i = 0; i < 1; i++)
 		createStack(PxTransform(PxVec3(30, 0, stackZ -= 16.0f)), 5, 2.0f);
 
-
+	
 
 }
 

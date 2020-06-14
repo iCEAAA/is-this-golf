@@ -30,7 +30,7 @@
 #ifdef RENDER_SNIPPET
 
 #include <vector>
-
+#include <Windows.h>
 #include "PxPhysicsAPI.h"
 
 #include "../SnippetRender/SnippetRender.h"
@@ -43,6 +43,68 @@ extern void stepPhysics(bool interactive);
 extern void cleanupPhysics(bool interactive);
 extern void keyPress(unsigned char key, const PxTransform& camera);
 extern PxRigidDynamic* Golf;
+
+//实现方案1
+void glWindowPos2i(GLint x, GLint y)
+{
+	typedef void(__stdcall * ARBFUNC)(GLint x, GLint y);
+
+	ARBFUNC glptr = 0;
+	glptr = (ARBFUNC)wglGetProcAddress("glWindowPos2iARB");
+
+	if (glptr)
+		glptr(x, y);
+	else printf("glWindowPos2iARB NOT exit\n");
+}
+void* bitmap_fonts[7] = {
+		GLUT_BITMAP_9_BY_15,
+		GLUT_BITMAP_8_BY_13,
+		GLUT_BITMAP_TIMES_ROMAN_10,
+		GLUT_BITMAP_TIMES_ROMAN_24,
+		GLUT_BITMAP_HELVETICA_10,
+		GLUT_BITMAP_HELVETICA_12,
+		GLUT_BITMAP_HELVETICA_18
+};
+void print_bitmap_string(void* font, const char* s)
+{
+	if (s && strlen(s)) {
+		while (*s) {
+			glutBitmapCharacter(font, *s);
+			s++;
+		}
+	}
+}
+int TextOut(float x, float y, const char* cstr)
+{
+	glWindowPos2i(x, y);
+	print_bitmap_string(bitmap_fonts[3], cstr);
+	return 1;
+}
+
+//实现方案2
+#define MAX_CHAR 128
+void drawString(std::string strn) {
+	static int isFirstCall = 1;
+	static GLuint lists;
+	const char* str = strn.c_str();
+	if (isFirstCall) { // 如果是第一次调用，执行初始化
+						 // 为每一个ASCII字符产生一个显示列表
+		isFirstCall = 0;
+
+		// 申请MAX_CHAR个连续的显示列表编号
+		lists = glGenLists(MAX_CHAR);
+
+		// 把每个字符的绘制命令都装到对应的显示列表中
+		wglUseFontBitmaps(wglGetCurrentDC(), 0, MAX_CHAR, lists);
+	}
+	// 调用每个字符对应的显示列表，绘制每个字符
+	while (*str != '\0')
+	{
+		glCallList(lists + *str);
+		++str;
+	}
+}
+
 
 namespace
 {
@@ -95,7 +157,10 @@ void renderCallback()
 		Snippets::renderActors(&actors[2], static_cast<PxU32>(1), true, PxVec3(0.9f, 0.9f, 0.9f));
 		Snippets::renderActors(&actors[3], static_cast<PxU32>(actors.size() - 3), true, PxVec3(0.5f, 0.5f, 0.5f));
 	}
-
+	TextOut(10, 100, "Press Q,E to rotate angle");
+	TextOut(10, 70, "Press H,J to control power");
+	TextOut(10, 40, "Press SPACE to Hit");
+	TextOut(10, 10, "Press R to Reset");
 	Snippets::finishRender();
 }
 
@@ -105,6 +170,9 @@ void exitCallback(void)
 	cleanupPhysics(true);
 }
 }
+
+
+
 
 void renderLoop()
 {
