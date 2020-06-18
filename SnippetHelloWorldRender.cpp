@@ -30,6 +30,7 @@
 #ifdef RENDER_SNIPPET
 
 #include <vector>
+#include <string>
 #include <Windows.h>
 #include "PxPhysicsAPI.h"
 
@@ -38,11 +39,12 @@
 
 using namespace physx;
 
-extern void initPhysics(bool interactive);
+extern void initPhysics(bool interactive, int scene);
 extern void stepPhysics(bool interactive);	
 extern void cleanupPhysics(bool interactive);
 extern void keyPress(unsigned char key, const PxTransform& camera);
 extern PxRigidDynamic* Golf;
+extern int totalHit;
 
 //实现方案1
 void glWindowPos2i(GLint x, GLint y)
@@ -74,8 +76,9 @@ void print_bitmap_string(void* font, const char* s)
 		}
 	}
 }
-int TextOut(float x, float y, const char* cstr)
+int TextOut(float x, float y, std::string str)
 {
+	const char* cstr = str.c_str();
 	glWindowPos2i(x, y);
 	print_bitmap_string(bitmap_fonts[3], cstr);
 	return 1;
@@ -141,27 +144,35 @@ void renderCallback()
 {
 	stepPhysics(true);/*每帧调用，simulate，fetchresult*/
 
+
 	Snippets::startRender(get_location() + sCamera->getEye(), sCamera->getDir());
 	//Snippets::startRender(sCamera->getEye(), sCamera->getDir());
 
 	PxScene* scene;/*创建scene*/
-	PxGetPhysics().getScenes(&scene,1);
+	PxGetPhysics().getScenes(&scene, 1);
 	PxU32 nbActors = scene->getNbActors(PxActorTypeFlag::eRIGID_DYNAMIC | PxActorTypeFlag::eRIGID_STATIC);
-	if(nbActors)
+	if (nbActors)
 	{
 		std::vector<PxRigidActor*> actors(nbActors);
 		scene->getActors(PxActorTypeFlag::eRIGID_DYNAMIC | PxActorTypeFlag::eRIGID_STATIC, reinterpret_cast<PxActor**>(&actors[0]), nbActors);
 		/*这里对每个actor进行渲染*/
 		Snippets::renderActors(&actors[0], static_cast<PxU32>(1), true, PxVec3(0.0f, 1.0f, 0.0f));/*（actors，numActors，shadow，color）*/
-		Snippets::renderActors(&actors[1], static_cast<PxU32>(1), true, PxVec3(1.0f, 1.0f, 1.0f));
-		Snippets::renderActors(&actors[2], static_cast<PxU32>(1), true, PxVec3(0.9f, 0.9f, 0.9f));
-		Snippets::renderActors(&actors[3], static_cast<PxU32>(actors.size() - 3), true, PxVec3(0.5f, 0.5f, 0.5f));
+		Snippets::renderActors(&actors[1], static_cast<PxU32>(1), false, PxVec3(1.0f, 1.0f, 1.0f));
+		Snippets::renderActors(&actors[2], static_cast<PxU32>(1), false, PxVec3(0.9f, 0.9f, 0.9f));
+		Snippets::renderActors(&actors[3], static_cast<PxU32>(actors.size() - 3), false, PxVec3(0.5f, 0.5f, 0.5f));
 	}
+	glColor3f(1.0, 1.0, 1.0);
+	std::string hit = std::to_string(totalHit);
+	TextOut(105, 160, hit);
+	TextOut(10, 160, "TotalHit:");
+	TextOut(10, 130, "Press Y,U,I to select scene");
 	TextOut(10, 100, "Press Q,E to rotate angle");
 	TextOut(10, 70, "Press H,J to control power");
 	TextOut(10, 40, "Press SPACE to Hit");
 	TextOut(10, 10, "Press R to Reset");
 	Snippets::finishRender();
+
+
 }
 
 void exitCallback(void)
@@ -190,7 +201,7 @@ void renderLoop()
 
 	atexit(exitCallback);
 
-	initPhysics(true);
+	initPhysics(true, 0);
 	glutMainLoop();
 }
 #endif

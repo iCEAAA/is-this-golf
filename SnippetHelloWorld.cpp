@@ -69,44 +69,38 @@ PxPvd* gPvd = NULL;
 
 PxReal stackZ = 10.0f;/*³õÊ¼¶ÑµÄÎ»ÖÃ*/
 
-PxRigidDynamic* createDynamic(const PxTransform& t, const PxGeometry& geometry, const PxVec3& velocity = PxVec3(0))
-{
-	PxRigidDynamic* dynamic = PxCreateDynamic(*gPhysics, t, geometry, *gMaterial, 100.0f);/*£¨physx£¬Î»ÖÃ£¬ĞÎ×´£¬²ÄÖÊ£¬ÃÜ¶È/ÖÊÁ¿£©*/
-	dynamic->setAngularDamping(0.5f);/*½Ç¶È×èÄá£¬Ô½´óÎïÌåÔ½ÄÑ¼ÌĞø½øĞĞ½Ç¶È±ä»¯*/
-	dynamic->setLinearDamping(0.4f);/*ÏßĞÔ×èÄá£¬¿ÉÒÔÀí½âÎªÎïÌå¼õËÙµÄ¿ìÂı£¨¿ÕÆø×èÁ¦µÄ´óĞ¡£¿£©*/
-	dynamic->setLinearVelocity(velocity);/*ÏßĞÔËÙ¶È*/
-	gScene->addActor(*dynamic);/* actor+1 */
-	return dynamic;
-}
 
 extern PxRigidDynamic* Golf = nullptr;//°ÑgolfÉèÖÃÎªÈ«¾Ö·ÃÎÊ
 PxRigidStatic* Arrow = nullptr;//·½ÏòÖ¸Ê¾¼ıÍ·
+PxRigidStatic* aFlagActor = nullptr;
 float arrowR = 5.0f;//¼ıÍ·ÓëÇòÖ®¼äµÄ¾àÀë
 int rotateDegree = 90;//¼ÇÂ¼Ğı×ª½Ç
 bool won = false;
+int Scene = 0;
+extern int totalHit = 0;
 
 float toRad(int degree)//½Ç¶È×ª»¡¶È
 {
 	return degree * (PxPi / 180.0f);
 }
 
-
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
 void updateArrow(float arrowR, int rotateDegree)
 {
+	gScene->removeActor(*Arrow);
+
 	float x = arrowR * cos(toRad(rotateDegree));
 	float z = -arrowR * sin(toRad(rotateDegree));
 	PxVec3 posv(Golf->getGlobalPose().p + PxVec3(x, 0, z));
-
-	gScene->removeActor(*Arrow);
 	Arrow = gPhysics->createRigidStatic(PxTransform(posv));//¸ù¾İÇòµÄÊÀ½ç×ø±êÉèÖÃ¼ıÍ·Î»ÖÃÀ´´´½¨¼ıÍ·
 
 	PxTransform arrowPose(PxQuat(toRad(rotateDegree), PxVec3(0, 1, 0)));
-	PxShape* arrowShape = PxRigidActorExt::createExclusiveShape(*Arrow, PxCapsuleGeometry(0.5f, arrowR-2.0f), *gMaterial);//¼ıÍ·ĞÎ×´
+	PxShape* arrowShape = PxRigidActorExt::createExclusiveShape(*Arrow, PxCapsuleGeometry(0.5f, arrowR - 2.0f), *gMaterial);//¼ıÍ·ĞÎ×´
 	arrowShape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, false);//¹Ø±ÕÅö×²
 	arrowShape->setLocalPose(arrowPose);//ÉèÖÃ¼ıÍ··½Ïò
+
 	gScene->addActor(*Arrow);
 }
-
 
 //¸üĞÂ¼ıÍ·µÄÏß³Ìµ÷ÓÃµÄº¯Êı
 void renewArrow()
@@ -132,75 +126,84 @@ void renewArrow()
 	gScene->addActor(*Arrow);
 }
 
-//ÅĞ¶ÏÊÇ·ñÊ¤Àû£¬ÔÚÇòÔË¶¯Ê±ĞÂ½¨Ïß³ÌÅĞ¶Ï
+/////////////////////ÅĞ¶ÏÊÇ·ñÊ¤Àû£¬ÔÚÇòÔË¶¯Ê±ĞÂ½¨Ïß³ÌÅĞ¶Ï///////////////////////////////////////////////////////////////
+bool win = false;
 void winning()
 {
-	while (!Golf->isSleeping())
+	if (Scene == 1)
 	{
-		//ÍµÀÁ×ö·¨£¬ÒÔºóÒª»»³ÉÅö×²¼ì²âÂß¼­
-		if ((Golf->getGlobalPose().p - PxVec3(20.0f, Golf->getGlobalPose().p.y, -65.0f)).magnitude() < 3.0f)//µ½´ïÆì¸Ë
+		while (!Golf->isSleeping())
 		{
-			int x = MessageBox(GetForegroundWindow(), "¹§Ï²Äã£¬ÄãµÄÇòµ½´ïÁËÆì¸Ë£¡\n °´ÈÎÒâ¼ü½áÊøÓÎÏ·Å¶£¡", "¡¾Ê¤Àû¡¿", 1);
-			printf("%d\n", x);
-			won = true;
+			if (win) {
+				//ÍµÀÁ×ö·¨£¬ÒÔºóÒª»»³ÉÅö×²¼ì²âÂß¼­
+				if ((Golf->getGlobalPose().p - PxVec3(20.0f, Golf->getGlobalPose().p.y, -50.0f)).magnitude() < 3.0f)//µ½´ïÆì¸Ë
+				{
+
+					int x = MessageBox(GetForegroundWindow(), "¹§Ï²Äã£¬ÄãµÄÇòµ½´ïÁËÆì¸Ë£¡\n °´ÈÎÒâ¼ü½áÊøÓÎÏ·Å¶£¡", "¡¾Ê¤Àû¡¿", 1);
+					printf("%d\n", x);
+					won = true;
+				}
+			}
+			else
+			{
+				if ((Golf->getGlobalPose().p - PxVec3(20.0f, Golf->getGlobalPose().p.y, -65.0f)).magnitude() < 3.0f)//µ½´ïÆì¸Ë
+				{
+					aFlagActor->setGlobalPose(PxTransform(PxVec3(20.0f, 45.0f, -50.0f)));
+					win = true;
+				}
+			}
+		}
+	}
+	else
+	{
+		while (!Golf->isSleeping())
+		{
+			float flagX = aFlagActor->getGlobalPose().p.x;
+			float flagZ = aFlagActor->getGlobalPose().p.z;
+			if ((Golf->getGlobalPose().p - PxVec3(flagX, Golf->getGlobalPose().p.y, flagZ)).magnitude() < 3.0f)//µ½´ïÆì¸Ë
+			{
+				int x = MessageBox(GetForegroundWindow(), "¹§Ï²Äã£¬ÄãµÄÇòµ½´ïÁËÆì¸Ë£¡\n °´ÈÎÒâ¼ü½áÊøÓÎÏ·Å¶£¡", "¡¾Ê¤Àû¡¿", 1);
+				printf("%d\n", x);
+				won = true;
+			}
 		}
 	}
 }
 
-//»÷´òÇò
+//////////////////////»÷´òÇò/////////////////////////////////////////////////////////////
+int i = 0;
+PxVec3 flagPos[4] = {
+	PxVec3(5.0f, 45.0f, -65.0f),
+	PxVec3(55.0f,45.0f, -65.0f),
+	PxVec3(55.0f,45.0f, -20.0f),
+	PxVec3(5.0f, 45.0f, -20.0f)
+};
 void hit()
 {
+	totalHit++;
+	if (Scene == 2)
+	{
+		aFlagActor->setGlobalPose(PxTransform(flagPos[(++i) % 4]));
+	}
 	if (!Golf->isSleeping()) return;//µ±ÇòÃ»ÓĞÍ£ÏÂÊ±£¬²»ÔÊĞí´ò»÷
 	printf("hit\n");
 
 	PxVec3 arrPos = Arrow->getGlobalPose().p;
 	PxVec3 golfPos = Golf->getGlobalPose().p;
-	float forceMagnitude = (arrPos - golfPos).magnitude() * 5;
+	float forceMagnitude = (arrPos - golfPos).magnitude() * 10;
 	PxVec3 force = (arrPos - golfPos).getNormalized() * abs(forceMagnitude);//ÊµÏÖÁËLYµÄË¼Â·
-	//Ê©¼ÓÁ¦µÄ·½ÏòÓë´óĞ¡ Ìá¹©Ë¼Â·£º·½Ïò = ¼ıÍ·µÄÊÀ½ç×ø±ê - ÇòµÄÊÀ½ç×ø±ê £¬getGlobalPose·µ»ØµÄÊÇÎ»ÖÃ+Ğı×ªĞÅÏ¢£¬getGlobalPose().pÕâÑùµÃµ½µÄÊÇÎ»ÖÃµÄVec3
+																			//Ê©¼ÓÁ¦µÄ·½ÏòÓë´óĞ¡ Ìá¹©Ë¼Â·£º·½Ïò = ¼ıÍ·µÄÊÀ½ç×ø±ê - ÇòµÄÊÀ½ç×ø±ê £¬getGlobalPose·µ»ØµÄÊÇÎ»ÖÃ+Ğı×ªĞÅÏ¢£¬getGlobalPose().pÕâÑùµÃµ½µÄÊÇÎ»ÖÃµÄVec3
 	force.y = force.y + 5.0f;//Ôö¼ÓyÖá ÍùÉÏ´ò
 	gScene->removeActor(*Arrow);//É¾³ı¼ıÍ·
 	Golf->addForce(force, PxForceMode::eVELOCITY_CHANGE);//Ê©¼ÓÁ¦
-	Golf->setSleepThreshold(10.0f);//ĞİÃß×´Ì¬ãĞÖµ
+	Golf->setSleepThreshold(15.0f);//ĞİÃß×´Ì¬ãĞÖµ
 	std::thread renewArrow(renewArrow);//´´½¨¼àÌıÏß³Ì¸üĞÂ¼ıÍ·
 	renewArrow.detach();//Ê¹µÃÏß³ÌÍÑÀëÖ÷Ïß³ÌµÄ¿ØÖÆ£¬Ö´ĞĞÍê×Ô¶¯ÍË³ö²¢ÇÒÊÍ·Å×ÊÔ´
 	std::thread wining(winning);//´´½¨Ïß³Ì¼àÌıÊ¤ÀûÌõ¼ş
 	wining.detach();//Í¬ÉÏ
 }
 
-//¶Ô¼ıÍ·½øĞĞĞı×ª
-void rotateArrow()
-{
-	if (!Golf->isSleeping()) return;
-	rotateDegree = (rotateDegree + 2) % 360;//¸Ä±ä½Ç¶È£¬·ñÔòÃ¿´Î¶¼Ö»±ä60¶ÈÁË
-											//±ä»»µÄÆ½Ãæ×ø±êÏµ¼ÆËã
-	updateArrow(arrowR, rotateDegree);
-}
-
-void rotateArrow2()
-{
-	if (!Golf->isSleeping()) return;
-	rotateDegree = (rotateDegree - 2) % 360;//¸Ä±ä½Ç¶È£¬·ñÔòÃ¿´Î¶¼Ö»±ä60¶ÈÁË
-											//±ä»»µÄÆ½Ãæ×ø±êÏµ¼ÆËã
-	updateArrow(arrowR, rotateDegree);
-}
-
-void Harder()
-{
-	if (!Golf->isSleeping()) return;
-	arrowR = (arrowR <= 9.0f) ? arrowR + 0.2f : arrowR;
-
-	updateArrow(arrowR, rotateDegree);
-}
-
-void Weaker()
-{
-	if (!Golf->isSleeping()) return;
-	arrowR = (arrowR >= 3.0f) ? arrowR - 0.2f : arrowR;
-	updateArrow(arrowR, rotateDegree);
-}
-
-//Çò¸´Î» ²¢·Ç³¡¾°¸´Î»
+//Çò¸´Î»
 void reset()
 {
 	if (!Golf->isSleeping()) return;//µ±ÇòÃ»ÓĞÍ£ÏÂÊ±£¬½ûÖ¹ÖØÖÃ£¬·ÀÖ¹·¢Éúbug
@@ -209,7 +212,9 @@ void reset()
 	Golf->setGlobalPose(PxTransform(PxVec3(30.0f, 0.0f, 30.0f)));
 	Golf->setLinearVelocity(PxVec3(0, 0, 0), 1);/*ÏßĞÔËÙ¶È*/
 	Golf->setAngularVelocity(PxVec3(0, 0, 0), 1);/*½Ç¶ÈËÙ¶È*/
-	Arrow->setGlobalPose(PxTransform(PxVec3(30.0f, 1.0f, 25.0f)));
+	Golf->putToSleep();
+	Arrow = gPhysics->createRigidStatic(PxTransform(PxVec3(30.0f, 1.0f, 25.0f)));
+
 	PxTransform arrowPose(PxQuat(PxHalfPi, PxVec3(0, 1.0f, 0)));
 	PxShape* arrowShape = PxRigidActorExt::createExclusiveShape(*Arrow, PxCapsuleGeometry(0.5f, arrowR - 2.0f), *gMaterial);
 	arrowShape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, false);//¹Ø±ÕÅö×²
@@ -218,45 +223,61 @@ void reset()
 	//gScene->addActor(*Golf);
 }
 
-//´´½¨·½¿é
-void createStack(const PxTransform& t, PxU32 size, PxReal halfExtent)
+////////////////////////¶Ô¼ıÍ·½øĞĞ²Ù×÷//////////////////////////////////////////////////////////////
+void rotateArrow()
 {
-	//Î§Ç½
-	PxRigidStatic* Wall1 = gPhysics->createRigidStatic(PxTransform(PxVec3(30.0f, 2.0f, 40.0f)));
-	PxShape* WallShape1 = PxRigidActorExt::createExclusiveShape(*Wall1, PxBoxGeometry(30.0f, 2.0f, 1.0f), *gMaterial);
-	gScene->addActor(*Wall1);
+	if (!Golf->isSleeping()) return;
+	rotateDegree = (rotateDegree + 2) % 360;//¸Ä±ä½Ç¶È£¬·ñÔòÃ¿´Î¶¼Ö»±ä60¶ÈÁË
+											//±ä»»µÄÆ½Ãæ×ø±êÏµ¼ÆËã
+	updateArrow(arrowR, rotateDegree);
+}
+void rotateArrow2()
+{
+	if (!Golf->isSleeping()) return;
+	rotateDegree = (rotateDegree - 2) % 360;//¸Ä±ä½Ç¶È£¬·ñÔòÃ¿´Î¶¼Ö»±ä60¶ÈÁË
+											//±ä»»µÄÆ½Ãæ×ø±êÏµ¼ÆËã
+	updateArrow(arrowR, rotateDegree);
+}
+void Harder()
+{
+	if (!Golf->isSleeping()) return;
+	arrowR = (arrowR <= 9.0f) ? arrowR + 0.2f : arrowR;
 
-	PxRigidStatic* Wall2 = gPhysics->createRigidStatic(PxTransform(PxVec3(30.0f, 2.0f, -70.0f)));
-	PxShape* WallShape2 = PxRigidActorExt::createExclusiveShape(*Wall2, PxBoxGeometry(30.0f, 2.0f, 1.0f), *gMaterial);
-	gScene->addActor(*Wall2);
+	updateArrow(arrowR, rotateDegree);
+}
+void Weaker()
+{
+	if (!Golf->isSleeping()) return;
+	arrowR = (arrowR >= 3.0f) ? arrowR - 0.2f : arrowR;
+	updateArrow(arrowR, rotateDegree);
+}
 
-	PxRigidStatic* Wall3 = gPhysics->createRigidStatic(PxTransform(PxVec3(0, 2.0f, -15.0f)));
-	PxShape* WallShape3 = PxRigidActorExt::createExclusiveShape(*Wall3, PxBoxGeometry(1.0f, 2.0f, 55.0f), *gMaterial);
-	gScene->addActor(*Wall3);
 
-	PxRigidStatic* Wall4 = gPhysics->createRigidStatic(PxTransform(PxVec3(60.0f, 2.0f, -15.0f)));
-	PxShape* WallShape4 = PxRigidActorExt::createExclusiveShape(*Wall4, PxBoxGeometry(1.0f, 2.0f, 55.0f), *gMaterial);
-	gScene->addActor(*Wall4);
-
+//////////////////////////////////////´´½¨¸÷ÖÖ³¡¾°///////////////////////////////////////////////////
+//´´½¨·½¿é
+void createStack(const PxTransform& t, PxU32 size, PxReal halfExtent)// PxTransform(PxVec3(30, 0, stackZ - 16.0f))   5   2.0f
+{
 	/*´´½¨geometryÄ£ĞÍ£¬ÏêÇé¿´ÎÄµµGeometry*/
-	//PxShape* shape = gPhysics->createShape(PxBoxGeometry(halfExtent, halfExtent, halfExtent), *gMaterial);/*³¤·½Ìå ³¤¿í¸ß*/
-	PxShape* shape = gPhysics->createShape(PxSphereGeometry(halfExtent), *gMaterial);/*ÇòÌå °ë¾¶*/
+	PxShape* shape = gPhysics->createShape(PxBoxGeometry(halfExtent, halfExtent, halfExtent), *gMaterial);/*³¤·½Ìå ³¤¿í¸ß*/
+	//PxShape* shape = gPhysics->createShape(PxSphereGeometry(halfExtent), *gMaterial);/*ÇòÌå °ë¾¶*/
 	for (PxU32 i = 0; i < size; i++)
 	{
 		for (PxU32 j = 0; j < size - i; j++)
 		{
-			PxTransform localTm(PxVec3(PxReal(j * 2) - PxReal(size - i), 1, PxReal(i * 2 + 1)) * halfExtent);/*¼ÆËã³ö¶Ñ¿éÎ»ÖÃ*/
+			PxTransform localTm(PxVec3(PxReal(j*2) - PxReal(size-i), PxReal(i*2+1), i+1.0f) * halfExtent);
+			//PxTransform localTm(PxVec3(PxReal(j * 2) - PxReal(size - i), 1, PxReal(i * 2 + 1)) * halfExtent); //ÎïÌåÆ½·Å
 			PxRigidDynamic* body = gPhysics->createRigidDynamic(t.transform(localTm));
 			body->attachShape(*shape);
-			PxRigidBodyExt::updateMassAndInertia(*body, 1.0f);
+			PxRigidBodyExt::updateMassAndInertia(*body, 1.0f);//mass
 			gScene->addActor(*body);
 		}
 	}
 	shape->release();
 }
-
+//original
 void createScene()
 {
+	Scene = 0;
 	/*²ÄÖÊ*/
 	gMaterial = gPhysics->createMaterial(0.5f, 0.5f, 0.8f);/*¾²Ä¦²ÁÁ¦ ¶¯Ä¦²ÁÁ¦ µ¯ĞÔ»Ö¸´ÏµÊı£º¾àÀëµØÃæ1mµÄÇòµ¯ÆğÀ´0.6mµÄ¸ß¶È*/
 
@@ -265,7 +286,144 @@ void createScene()
 	gScene->addActor(*groundPlane);
 
 	/*Æì¸Ëactor[1]*/
-	PxRigidStatic* aFlagActor = gPhysics->createRigidStatic(PxTransform(PxVec3(20.0f, 45.0f, -65.0f)));/*Æì¸ËÎ»ÖÃ*/
+	aFlagActor = gPhysics->createRigidStatic(PxTransform(PxVec3(20.0f, 45.0f, -65.0f)));/*Æì¸ËÎ»ÖÃ*/
+	PxTransform relativePose(PxQuat(PxHalfPi, PxVec3(0, 0, 1)));
+	PxShape* aFlagShape = PxRigidActorExt::createExclusiveShape(*aFlagActor, PxCapsuleGeometry(1.0f, 45.0f), *gMaterial);/*´´½¨shapeĞÎ×´*/
+	aFlagShape->setLocalPose(relativePose);/*Ğı×ªÖÁyÖĞÖáÏß*/
+	gScene->addActor(*aFlagActor);
+
+	/*Çòactor[2]*/
+	Golf = gPhysics->createRigidDynamic(PxTransform(PxVec3(30.0f, 0.0f, 30.0f)));/*ÇòÆğÊ¼Î»ÖÃ*/
+	PxShape* aGolfShape = PxRigidActorExt::createExclusiveShape(*Golf,
+		PxSphereGeometry(1.0f), *gMaterial);/*ĞÎ×´¡¢²ÄÖÊ*/
+	PxRigidBodyExt::updateMassAndInertia(*Golf, 40.0f);/*ÉèÖÃÃÜ¶È£¨ÖÊÁ¿£©*/
+
+	Golf->setAngularDamping(0.2f);/*ÉèÖÃ½Ç¶È×èÄá*/
+	Golf->setLinearDamping(0.2f);/*ÉèÖÃÏßĞÔ×èÄá*/
+	gScene->addActor(*Golf);
+	/*Ó¦¸Ã»¹ĞèÒªÉèÖÃ¼¸¸ö²ÎÊıÀ´¿ØÖÆ ±ÈÈçisSleeping()ÕâÖÖ¶«Î÷ ±ÈÈçÅäºÏ°´¼ü²Ù×÷À´¿ØÖÆÇòµÄÎ»ÖÃ »òÕß»÷ÇòµÄÁ¦µÄ·½Ïò ´óĞ¡*/
+
+	//·½ÏòÖ¸Ê¾¼ıÍ·actor[3]
+	//Arrow = gPhysics->createRigidStatic(PxTransform(PxVec3(30.0f, 0.0f, 27.0f)));//·½ÏòÖ¸Ê¾Æ÷
+	PxTransform newPos = Golf->getGlobalPose().transform(PxTransform(0, 1.0f, -5.0f));
+
+	Arrow = gPhysics->createRigidStatic(newPos);//·½ÏòÖ¸Ê¾Æ÷
+	PxTransform arrowPose(PxQuat(PxHalfPi, PxVec3(0, 1.0f, 0)));
+	PxShape* arrowShape = PxRigidActorExt::createExclusiveShape(*Arrow, PxCapsuleGeometry(0.5f, arrowR - 2.0f), *gMaterial);
+	arrowShape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, false);//¹Ø±ÕÅö×²
+	arrowShape->setLocalPose(arrowPose);
+	gScene->addActor(*Arrow);
+	
+	//Î§Ç½
+	PxRigidStatic* Wall1 = gPhysics->createRigidStatic(PxTransform(PxVec3(30.0f, 2.0f, 40.0f)));
+	PxShape* WallShape1 = PxRigidActorExt::createExclusiveShape(*Wall1, PxBoxGeometry(30.0f, 4.0f, 1.0f), *gMaterial);
+	gScene->addActor(*Wall1);
+
+	PxRigidStatic* Wall2 = gPhysics->createRigidStatic(PxTransform(PxVec3(30.0f, 2.0f, -70.0f)));
+	PxShape* WallShape2 = PxRigidActorExt::createExclusiveShape(*Wall2, PxBoxGeometry(30.0f, 4.0f, 1.0f), *gMaterial);
+	gScene->addActor(*Wall2);
+
+	PxRigidStatic* Wall3 = gPhysics->createRigidStatic(PxTransform(PxVec3(0, 2.0f, -25.0f)));
+	PxShape* WallShape3 = PxRigidActorExt::createExclusiveShape(*Wall3, PxBoxGeometry(1.0f, 4.0f, 65.0f), *gMaterial);
+	gScene->addActor(*Wall3);
+
+	PxRigidStatic* Wall4 = gPhysics->createRigidStatic(PxTransform(PxVec3(60.0f, 2.0f, -25.0f)));
+	PxShape* WallShape4 = PxRigidActorExt::createExclusiveShape(*Wall4, PxBoxGeometry(1.0f, 4.0f, 65.0f), *gMaterial);
+	gScene->addActor(*Wall4);
+	//
+	/*»­µÄÁ¢·½Ìå¶Ñ*/
+	for (PxU32 i = 0; i < 1; i++)
+		createStack(PxTransform(PxVec3(30, 0, stackZ - 35.0f)), 7, 2.0f); //stackZ -= 16.0f
+
+}
+//hfbµÄ³¡¾°
+void createScene1()
+{
+	Scene = 1;
+	/*²ÄÖÊ*/
+	gMaterial = gPhysics->createMaterial(0.8f, 0.5f, 0.7f);/*¾²Ä¦²ÁÁ¦ ¶¯Ä¦²ÁÁ¦ µ¯ĞÔ»Ö¸´ÏµÊı£º¾àÀëµØÃæ1mµÄÇòµ¯ÆğÀ´0.6mµÄ¸ß¶È*/
+
+	/*³¡¾°Æ½Ãæactor[0]*/
+	PxRigidStatic* groundPlane = PxCreatePlane(*gPhysics, PxPlane(0, 1, 0, 0), *gMaterial);
+	gScene->addActor(*groundPlane);
+
+	/*Æì¸Ëactor[1]*/
+	aFlagActor = gPhysics->createRigidStatic(PxTransform(PxVec3(20.0f, 45.0f, -65.0f)));/*Æì¸ËÎ»ÖÃ*/
+	//PxRigidStatic* aFlagActor = gPhysics->createRigidStatic(PxTransform(PxVec3(20.0f, 45.0f, -50.0f)));/*Æì¸ËÎ»ÖÃ*/
+	PxTransform relativePose(PxQuat(PxHalfPi, PxVec3(0, 0, 1)));
+	PxShape* aFlagShape = PxRigidActorExt::createExclusiveShape(*aFlagActor, PxCapsuleGeometry(1.0f, 45.0f), *gMaterial);/*´´½¨shapeĞÎ×´*/
+	aFlagShape->setLocalPose(relativePose);/*Ğı×ªÖÁyÖĞÖáÏß*/
+	gScene->addActor(*aFlagActor);
+
+	/*Çòactor[2]*/
+	Golf = gPhysics->createRigidDynamic(PxTransform(PxVec3(30.0f, 0.0f, 30.0f)));/*ÇòÆğÊ¼Î»ÖÃ*/
+	PxShape* aGolfShape = PxRigidActorExt::createExclusiveShape(*Golf,
+		PxSphereGeometry(1.0f), *gMaterial);/*ĞÎ×´¡¢²ÄÖÊ*/
+	PxRigidBodyExt::updateMassAndInertia(*Golf, 40.0f);/*ÉèÖÃÃÜ¶È£¨ÖÊÁ¿£©*/
+
+	Golf->setAngularDamping(0.2f);/*ÉèÖÃ½Ç¶È×èÄá*/
+	Golf->setLinearDamping(0.2f);/*ÉèÖÃÏßĞÔ×èÄá*/
+	gScene->addActor(*Golf);
+	/*Ó¦¸Ã»¹ĞèÒªÉèÖÃ¼¸¸ö²ÎÊıÀ´¿ØÖÆ ±ÈÈçisSleeping()ÕâÖÖ¶«Î÷ ±ÈÈçÅäºÏ°´¼ü²Ù×÷À´¿ØÖÆÇòµÄÎ»ÖÃ »òÕß»÷ÇòµÄÁ¦µÄ·½Ïò ´óĞ¡*/
+
+	//·½ÏòÖ¸Ê¾¼ıÍ·actor[3]
+	//Arrow = gPhysics->createRigidStatic(PxTransform(PxVec3(30.0f, 0.0f, 27.0f)));//·½ÏòÖ¸Ê¾Æ÷
+	PxTransform newPos = Golf->getGlobalPose().transform(PxTransform(0, 1.0f, -5.0f));
+
+	Arrow = gPhysics->createRigidStatic(newPos);//·½ÏòÖ¸Ê¾Æ÷
+	PxTransform arrowPose(PxQuat(PxHalfPi, PxVec3(0, 1.0f, 0)));
+	PxShape* arrowShape = PxRigidActorExt::createExclusiveShape(*Arrow, PxCapsuleGeometry(0.5f, arrowR - 2.0f), *gMaterial);
+	arrowShape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, false);//¹Ø±ÕÅö×²
+	arrowShape->setLocalPose(arrowPose);
+	gScene->addActor(*Arrow);
+
+	//Î§Ç½
+	PxRigidStatic* Wall1 = gPhysics->createRigidStatic(PxTransform(PxVec3(30.0f, 2.0f, 40.0f)));
+	PxShape* WallShape1 = PxRigidActorExt::createExclusiveShape(*Wall1, PxBoxGeometry(30.0f, 4.0f, 1.0f), *gMaterial);
+	gScene->addActor(*Wall1);
+
+	PxRigidStatic* Wall2 = gPhysics->createRigidStatic(PxTransform(PxVec3(30.0f, 2.0f, -90.0f)));
+	PxShape* WallShape2 = PxRigidActorExt::createExclusiveShape(*Wall2, PxBoxGeometry(30.0f, 4.0f, 1.0f), *gMaterial);
+	gScene->addActor(*Wall2);
+
+	PxRigidStatic* Wall3 = gPhysics->createRigidStatic(PxTransform(PxVec3(0, 2.0f, -25.0f)));
+	PxShape* WallShape3 = PxRigidActorExt::createExclusiveShape(*Wall3, PxBoxGeometry(1.0f, 4.0f, 65.0f), *gMaterial);
+	gScene->addActor(*Wall3);
+
+	PxRigidStatic* Wall4 = gPhysics->createRigidStatic(PxTransform(PxVec3(60.0f, 2.0f, -25.0f)));
+	PxShape* WallShape4 = PxRigidActorExt::createExclusiveShape(*Wall4, PxBoxGeometry(1.0f, 4.0f, 65.0f), *gMaterial);
+	gScene->addActor(*Wall4);
+	//
+	/*»­µÄÁ¢·½Ìå¶Ñ*/
+	for (PxU32 i = 0; i < 1; i++)
+		createStack(PxTransform(PxVec3(30, 0, stackZ - 35.0f)), 7, 2.0f); //stackZ -= 16.0f
+
+	//Æì¸ËÎ§À¸
+	PxRigidStatic* fence1 = gPhysics->createRigidStatic(PxTransform(PxVec3(10.0f, 2.0f, -65.0f)));
+	PxShape* fenceShape1 = PxRigidActorExt::createExclusiveShape(*fence1, PxBoxGeometry(1.0f, 4.0f, 20.0f), *gMaterial);
+	gScene->addActor(*fence1);
+
+	PxRigidStatic* fence2 = gPhysics->createRigidStatic(PxTransform(PxVec3(30.0f, 2.0f, -65.0f)));
+	PxShape* fenceShape2 = PxRigidActorExt::createExclusiveShape(*fence2, PxBoxGeometry(1.0f, 4.0f, 20.0f), *gMaterial);
+	gScene->addActor(*fence2);
+
+	PxRigidStatic* fence3 = gPhysics->createRigidStatic(PxTransform(PxVec3(20, 2.0f, -55.0f)));
+	PxShape* fenceShape3 = PxRigidActorExt::createExclusiveShape(*fence3, PxBoxGeometry(10.0f, 4.0f, 1.0f), *gMaterial);
+	gScene->addActor(*fence3);
+}
+//lyµÄ³¡¾°
+void createScene2()
+{
+	Scene = 2;
+	/*²ÄÖÊ*/
+	gMaterial = gPhysics->createMaterial(0.5f, 0.5f, 0.8f);/*¾²Ä¦²ÁÁ¦ ¶¯Ä¦²ÁÁ¦ µ¯ĞÔ»Ö¸´ÏµÊı£º¾àÀëµØÃæ1mµÄÇòµ¯ÆğÀ´0.6mµÄ¸ß¶È*/
+
+	/*³¡¾°Æ½Ãæactor[0]*/
+	PxRigidStatic* groundPlane = PxCreatePlane(*gPhysics, PxPlane(0, 1, 0, 0), *gMaterial);
+	gScene->addActor(*groundPlane);
+
+	/*Æì¸Ëactor[1]*/
+	aFlagActor = gPhysics->createRigidStatic(PxTransform(PxVec3(5.0f, 45.0f, -65.0f)));/*Æì¸ËÎ»ÖÃ*/
 	PxTransform relativePose(PxQuat(PxHalfPi, PxVec3(0, 0, 1)));
 	PxShape* aFlagShape = PxRigidActorExt::createExclusiveShape(*aFlagActor,
 		PxCapsuleGeometry(1.0f, 45.0f), *gMaterial);/*´´½¨shapeĞÎ×´*/
@@ -295,15 +453,46 @@ void createScene()
 	arrowShape->setLocalPose(arrowPose);
 	gScene->addActor(*Arrow);
 
-	/*»­µÄÁ¢·½Ìå¶Ñ*/
-	for (PxU32 i = 0; i < 1; i++)
-		createStack(PxTransform(PxVec3(30, 0, stackZ -= 16.0f)), 5, 2.0f);
+	{
+		//Ç°ºóÇ½
+		PxRigidStatic* Wall1 = gPhysics->createRigidStatic(PxTransform(PxVec3(30.0f, 2.5f, 40.0f)));
+		PxShape* WallShape1 = PxRigidActorExt::createExclusiveShape(*Wall1, PxBoxGeometry(30.0f, 5.0f, 1.0f), *gMaterial);
+		gScene->addActor(*Wall1);
+		PxRigidStatic* Wall2 = gPhysics->createRigidStatic(PxTransform(PxVec3(30.0f, 2.5f, -70.0f)));
+		Wall2->attachShape(*WallShape1);
+		gScene->addActor(*Wall2);
 
-	
+		//×óÓÒÇ½
+		PxRigidStatic* Wall3 = gPhysics->createRigidStatic(PxTransform(PxVec3(0, 2.5f, -15.0f)));
+		PxShape* WallShape3 = PxRigidActorExt::createExclusiveShape(*Wall3, PxBoxGeometry(1.0f, 5.0f, 55.0f), *gMaterial);
+		gScene->addActor(*Wall3);
+		PxRigidStatic* Wall4 = gPhysics->createRigidStatic(PxTransform(PxVec3(60.0f, 2.5f, -15.0f)));
+		Wall4->attachShape(*WallShape3);
+		gScene->addActor(*Wall4);
 
+		//ÖĞ¼äÁ½Æ¬
+		PxRigidStatic* wall5 = gPhysics->createRigidStatic(PxTransform(PxVec3(13.0f, 2.5f, -15.0f)));
+		PxShape* WallShape5 = PxRigidActorExt::createExclusiveShape(*wall5, PxBoxGeometry(13.0f, 5.0f, 1.0f), *gMaterial);
+		gScene->addActor(*wall5);
+		PxRigidStatic* wall6 = gPhysics->createRigidStatic(PxTransform(PxVec3(47.0f, 2.5f, -15.0f)));
+		wall6->attachShape(*WallShape5);
+		gScene->addActor(*wall6);
+
+		//ÏÂ·½Á½Æ¬
+		PxRigidStatic* wall7 = gPhysics->createRigidStatic(PxTransform(PxVec3(25.0f, 2.5f, 22.0f)));
+		PxShape* WallShape7 = PxRigidActorExt::createExclusiveShape(*wall7, PxBoxGeometry(25.0f, 5.0f, 1.0f), *gMaterial);
+		gScene->addActor(*wall7);
+		PxRigidStatic* wall8 = gPhysics->createRigidStatic(PxTransform(PxVec3(35.0f, 2.5f, 4.0f)));
+		wall8->attachShape(*WallShape7);
+		gScene->addActor(*wall8);
+
+		//ÉÏ·½ÕÏ°­
+		PxRigidStatic* wall9 = gPhysics->createRigidStatic(PxTransform(PxVec3(30.0f, 2.5f, -42.0f)));
+		PxShape* WallShape9 = PxRigidActorExt::createExclusiveShape(*wall9, PxBoxGeometry(15.0f, 5.0f, 1.0f), *gMaterial);
+		gScene->addActor(*wall9);
+	}
 }
-
-void initPhysics(bool interactive)
+void initPhysics(bool interactive, int scene)
 {
 	//µÚÒ»²½ foundation£¨physx°æ±¾£¬ÄÚ´æ·ÖÅäÆ÷16×Ö½Ú¶ÔÆë£¬´íÎó»Øµ÷º¯Êı£©
 	gFoundation = PxCreateFoundation(PX_FOUNDATION_VERSION, gAllocator, gErrorCallback);
@@ -312,7 +501,7 @@ void initPhysics(bool interactive)
 	PxPvdTransport* transport = PxDefaultPvdSocketTransportCreate(PVD_HOST, 5425, 10);/*£¨±¾µØhost£¬¶Ë¿ÚºÅ£¬µ÷ÓÃÆµÂÊ£©*/
 	gPvd->connect(*transport, PxPvdInstrumentationFlag::eALL);/*Á¬½Ó*/
 
-															  //µÚ¶ş²¿ ´´½¨physx¶ÔÏó£¨°æ±¾£¬foundationÖ¸Õë£¬Îó²îÈİÈÌ¹æÄ££¬pvdÊÇ·ñ¼ÇÂ¼ÄÚ´æ¿ªÏú£¬pvd¶ÔÏó£©
+	//µÚ¶ş²¿ ´´½¨physx¶ÔÏó£¨°æ±¾£¬foundationÖ¸Õë£¬Îó²îÈİÈÌ¹æÄ££¬pvdÊÇ·ñ¼ÇÂ¼ÄÚ´æ¿ªÏú£¬pvd¶ÔÏó£©
 	gPhysics = PxCreatePhysics(PX_PHYSICS_VERSION, *gFoundation, PxTolerancesScale(), true, gPvd);
 
 	PxSceneDesc sceneDesc(gPhysics->getTolerancesScale());/*³¡¾°ÃèÊö¶ÔÏó*/
@@ -330,13 +519,18 @@ void initPhysics(bool interactive)
 		pvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_SCENEQUERIES, true);
 	}
 
-	//Ìî³ä³¡¾°
-	createScene();
+	switch (scene)
+	{
+	case 0:createScene(); break;//original
+	case 1:createScene1(); break;//hfb
+	case 2:createScene2(); break;//ly
+	default:
+		break;
+	}
 
-	if (!interactive)
-		createDynamic(PxTransform(PxVec3(0, 40, 100)), PxSphereGeometry(4), PxVec3(0, -50, -100));
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////
 void stepPhysics(bool interactive)/*Ã¿Ö¡µ÷ÓÃ*/
 {
 	PX_UNUSED(interactive);
@@ -345,7 +539,6 @@ void stepPhysics(bool interactive)/*Ã¿Ö¡µ÷ÓÃ*/
 								   /*Õâ²¿·Ö¼ÆËã½«Òì²½½øĞĞ£¬²»ÀË·Ñ¼ÆËãÖĞµÄµÈ´ıÊ±¼ä*/
 	gScene->fetchResults(true);/*»ñÈ¡¼ÆËãµÄ½á¹û£¬true£º×èÈû£ºµÈsimulate¼ÆËãÍê³Éºó²ÅÊä³ö£¬Èç¹û¼ÆËãÊ±¼ä´óÓÚ1/60sÔò»á¿¨*/
 }
-
 void cleanupPhysics(bool interactive)/*Ë³ĞòÏà·´µØrelease*/
 {
 	PX_UNUSED(interactive);
@@ -361,7 +554,8 @@ void cleanupPhysics(bool interactive)/*Ë³ĞòÏà·´µØrelease*/
 	printf("SnippetHelloWorld done.\n");
 }
 
-void keyPress(unsigned char key, const PxTransform& camera)/*°´¼üÊäÈë´¦Àí£¬Õâ²¿·ÖÓ¦¸ÃÍ¦¹Ø¼üµÄ*/
+////////////////////////°´¼üÊäÈë´¦Àí//////////////////////////////////////////////////////////////////////////
+void keyPress(unsigned char key, const PxTransform& camera)
 {
 	if (won)
 	{
@@ -369,8 +563,10 @@ void keyPress(unsigned char key, const PxTransform& camera)/*°´¼üÊäÈë´¦Àí£¬Õâ²¿·
 	}
 	switch (toupper(key))
 	{
-		//case 'H':	createStack(PxTransform(PxVec3(10,0,stackZ-=16.0f)), 10, 2.0f);						break;
-		//case ' ':	createDynamic(camera, PxSphereGeometry(1.0f), camera.rotate(PxVec3(0,0,-1))*100);	break;/*Ä¿Ç°ÈÔÈ»±£ÁôÁË¿Õ¸ñ¼ü·¢ÉäÇò ËÙ¶ÈÎª*100*/
+	case 'Y':	cleanupPhysics(true); initPhysics(true, 0); break;
+	case 'U':   cleanupPhysics(true); initPhysics(true, 1); break;
+	case 'I':	cleanupPhysics(true); initPhysics(true, 2); break;
+
 	case 'Q':	rotateArrow(); break;
 	case 'E':	rotateArrow2(); break;
 	case ' ':	hit();	break;
