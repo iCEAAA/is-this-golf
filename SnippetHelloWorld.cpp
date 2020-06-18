@@ -78,6 +78,7 @@ int rotateDegree = 90;//记录旋转角
 bool won = false;
 int Scene = 0;
 extern int totalHit = 0;
+extern bool exitFlag = 0;
 
 float toRad(int degree)//角度转弧度
 {
@@ -106,7 +107,7 @@ void updateArrow(float arrowR, int rotateDegree)
 void renewArrow()
 {
 	while (!Golf->isSleeping());//当球还没停下时，loop
-								//球停下之后，摆一个新的箭头
+							   //球停下之后，摆一个新的箭头
 	printf("createArrow\n");
 
 	float x = arrowR * cos(toRad(rotateDegree));
@@ -123,7 +124,11 @@ void renewArrow()
 	arrowShape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, false);//关闭碰撞
 	arrowShape->setLocalPose(arrowPose);//设置箭头方向为水平向前
 										//Arrow->setGlobalPose(position);
-	gScene->addActor(*Arrow);
+	if (!exitFlag)
+	{
+		gScene->addActor(*Arrow);
+	}
+	else exit(0);
 }
 
 /////////////////////判断是否胜利，在球运动时新建线程判断///////////////////////////////////////////////////////////////
@@ -170,7 +175,7 @@ void winning()
 	}
 }
 
-//////////////////////击打球/////////////////////////////////////////////////////////////
+//////////////////////对球进行操作球/////////////////////////////////////////////////////////////
 int i = 0;
 PxVec3 flagPos[4] = {
 	PxVec3(5.0f, 45.0f, -65.0f),
@@ -193,10 +198,10 @@ void hit()
 	float forceMagnitude = (arrPos - golfPos).magnitude() * 10;
 	PxVec3 force = (arrPos - golfPos).getNormalized() * abs(forceMagnitude);//实现了LY的思路
 																			//施加力的方向与大小 提供思路：方向 = 箭头的世界坐标 - 球的世界坐标 ，getGlobalPose返回的是位置+旋转信息，getGlobalPose().p这样得到的是位置的Vec3
-	force.y = force.y + 5.0f;//增加y轴 往上打
+	force.y = force.y + 10.0f;//增加y轴 往上打
 	gScene->removeActor(*Arrow);//删除箭头
 	Golf->addForce(force, PxForceMode::eVELOCITY_CHANGE);//施加力
-	Golf->setSleepThreshold(15.0f);//休眠状态阈值
+	Golf->setSleepThreshold(18.0f);//休眠状态阈值
 	std::thread renewArrow(renewArrow);//创建监听线程更新箭头
 	renewArrow.detach();//使得线程脱离主线程的控制，执行完自动退出并且释放资源
 	std::thread wining(winning);//创建线程监听胜利条件
@@ -479,10 +484,10 @@ void createScene2()
 		gScene->addActor(*wall6);
 
 		//下方两片
-		PxRigidStatic* wall7 = gPhysics->createRigidStatic(PxTransform(PxVec3(25.0f, 2.5f, 22.0f)));
-		PxShape* WallShape7 = PxRigidActorExt::createExclusiveShape(*wall7, PxBoxGeometry(25.0f, 5.0f, 1.0f), *gMaterial);
+		PxRigidStatic* wall7 = gPhysics->createRigidStatic(PxTransform(PxVec3(20.0f, 2.5f, 22.0f)));
+		PxShape* WallShape7 = PxRigidActorExt::createExclusiveShape(*wall7, PxBoxGeometry(20.0f, 5.0f, 1.0f), *gMaterial);
 		gScene->addActor(*wall7);
-		PxRigidStatic* wall8 = gPhysics->createRigidStatic(PxTransform(PxVec3(35.0f, 2.5f, 4.0f)));
+		PxRigidStatic* wall8 = gPhysics->createRigidStatic(PxTransform(PxVec3(40.0f, 2.5f, 4.0f)));
 		wall8->attachShape(*WallShape7);
 		gScene->addActor(*wall8);
 
@@ -557,10 +562,8 @@ void cleanupPhysics(bool interactive)/*顺序相反地release*/
 ////////////////////////按键输入处理//////////////////////////////////////////////////////////////////////////
 void keyPress(unsigned char key, const PxTransform& camera)
 {
-	if (won)
-	{
-		exit(0);
-	}
+	//if (won) exit(0);
+	
 	switch (toupper(key))
 	{
 	case 'Y':	cleanupPhysics(true); initPhysics(true, 0); break;
@@ -575,7 +578,7 @@ void keyPress(unsigned char key, const PxTransform& camera)
 	case 'J':	Weaker(); break;
 	}
 }
-
+//////////////////////main/////////////////////////////////////////////////////////////////////////
 int snippetMain(int, const char* const*)
 {
 #ifdef RENDER_SNIPPET

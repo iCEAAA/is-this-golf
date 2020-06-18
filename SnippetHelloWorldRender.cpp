@@ -45,6 +45,7 @@ extern void cleanupPhysics(bool interactive);
 extern void keyPress(unsigned char key, const PxTransform& camera);
 extern PxRigidDynamic* Golf;
 extern int totalHit;
+extern bool exitFlag;
 
 //实现方案1
 void glWindowPos2i(GLint x, GLint y)
@@ -120,8 +121,12 @@ void motionCallback(int x, int y)
 
 void keyboardCallback(unsigned char key, int x, int y)
 {
-	if(key==27)/*ESC*/
+	if (key == 27)/*ESC*/
+	{
+		exitFlag = 1;
 		exit(0);
+	}
+		
 
 	if(!sCamera->handleKey(key, x, y))
 		keyPress(key, sCamera->getTransform());
@@ -189,7 +194,7 @@ void renderLoop()
 {
 	sCamera = new Snippets::Camera(PxVec3(30.0f,30.0f,30.0f), PxVec3(-0.5f,-0.5f,-0.5f));/*摄像机初始位置，摄像机初始面向*/
 
-	Snippets::setupDefaultWindow("PhysX Snippet Golf");
+	Snippets::setupDefaultWindow("is this golf?");
 	Snippets::setupDefaultRenderState();
 
 	glutIdleFunc(idleCallback);/*一堆回调函数*/
